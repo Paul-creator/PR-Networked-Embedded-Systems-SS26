@@ -1,0 +1,40 @@
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=3cm, bottom=3cm}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% --- BILDERPFAD DEFINIEREN ---
+\graphicspath{{images/}} 
+
+% --- Header & Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{PR Networked Embedded Systems}
+\chead{Exercise 1}
+\rhead{\includegraphics[height=1cm]{jku_logo.png}} % Leg ein jku_logo.png in /images ab
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Formatierung
+\titleformat{\section}{\large\bfseries}{}{0em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+% Code Style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    keywordstyle=\color{blue}
+}

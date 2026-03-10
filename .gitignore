@@ -1,0 +1,6 @@
+*.log
+*.fls
+*.fdb_latexmk
+*.aux
+*.gz
+*_region_*
