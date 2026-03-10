@@ -1,11 +1,32 @@
+% !TEX root = ../main.tex
+
 \section{Theory Questions}
 \textit{Answer the questions below in your own words, add diagrams, formulas, and calculations if necessary.}
 
 \subsection{a) What does the abbreviation GPIO mean?}
-% Deine Antwort hier
+GPIO stands for \textbf{General Purpose Input/Output}. It refers to programmable digital pins on a microcontroller or processor that can be configured either as an input or as an output.
 
 \subsection{b) What functionality do GPIOs have and what are they used for?}
-% Deine Antwort hier
+GPIO pins allow a microcontroller to interact with external electronic components.
+
+Main functionalities:
+\begin{itemize}
+	\item \textbf{Input mode:} The pin reads a digital signal (HIGH or LOW) from external devices such as buttons, switches, or sensors.
+	\item \textbf{Output mode:} The pin outputs a digital signal (HIGH or LOW) to control external components such as LEDs, relays, or motors.
+\end{itemize}
+
+GPIOs are therefore used for general digital interfacing between the microcontroller and external hardware.
 
 \subsection{c) What is a duty cycle? How do you calculate it?}
-% Deine Antwort hier
+The \textbf{duty cycle} describes the proportion of time a periodic signal stays in the HIGH state within one period.
+
+It is defined as the ratio between the active time \(T_{on}\) and the total period \(T\):
+
+\[
+	D = \frac{T_{on}}{T}
+\]
+
+\begin{itemize}
+	\item \(T_{on}\) = time the signal is HIGH
+	\item \(T\) = total period of the signal
+\end{itemize}
