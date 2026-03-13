@@ -1,0 +1,154 @@
+\section{Theory Questions}
+
+\subsection{a) Describe Timer Mode, PWM Mode, and Counter Mode}
+
+\subsubsection*{Timer Mode}
+Timer Mode uses an internal clock source, like the system clock, to increment a counter register at regular intervals. 
+The Clock Signal passes through a Prescaler (divider), which can be configured to achieve the desired time increment. 
+When the Counter reaches a predefined Threshold it generates an interrupt or sets a Flag, to notify the Program, that a specific time has passed.
+
+This is typically used:
+\begin{itemize}
+    \item in delays or timeouts
+    \item to generate periodic events (function calls, increments etc.)
+    \item to time simple tasks such as LED Blinking
+\end{itemize}
+
+\subsubsection*{Counter Mode}
+Here the Timer does not use the Internal Clock signal. Instead it counts external events or internal Triggers.
+Each incoming event or Pulse increases the counter.
+
+This is typically used:
+\begin{itemize}
+    \item to count Button presses
+    \item to count rotations of a Motor or Servo
+    \item to implement a Pulse Counter like in Task C in this exercise
+\end{itemize}
+
+\subsubsection*{PWM Mode}
+In PWM (Pulse Width Modulation) Mode, the Timer produces a pulse-width modulation signal by comparing the counter value against a compare register.  
+There are multiple different modes, like Fast-PWM, which starts at 0 and counts up to the maximum value and then resets, and Phase Correct PWM, which counts up and down for smoother signals.
+
+This is typically used:
+\begin{itemize}
+    \item to generate Analog Voltages in combination with a Filter
+    \item to controll motor speed
+    \item to dimm an LED by changing the Duty cycle
+\end{itemize}
+
+\subsection{b) Operation Mode: Timer with counter register}\label{task:counter_reg}
+% Deine Antwort hier
+
+In this Example the Timer is used in combination with the Counter Register.
+As seen in the Block Schematic in Figure \ref{fig:timer_w_counter_reg} the Clock signal is divided and then fed into the Counter Register.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{timer_w_counter_reg.png}
+    \caption{Block Schematic of a Timer with counter Register}
+    \label{fig:timer_w_counter_reg}
+\end{figure}
+
+As a numerical example we use:
+\begin{align}
+	f_{clk} &= 10 \; \text{kHz} \\
+	D_{div} &= 250 \\
+	f_{timer} &= \frac{f_{clk}}{D_{div}} 
+	= \frac{10 \; \text{kHz}}{250} 
+	= 40 \; \text{Hz}
+\end{align}
+
+This means that the Prescaler reduces the Clock-tick timing from one tick every \[\frac{1}{f_{clk}} = 100 \; \mu s\] to one tick every \[\frac{1}{f_{timer}} = 25 \; \text{ms}\]
+
+The Counter value at $t = 0 \; \text{s}$ is $65$. The Maximum value of the 16-Bit Counter is $2^{16} = 65536$. This means that the overflow occurs after $65536 - 65 = 65471$ counts.
+This multiplied by the time per count results in the Time left until the overflow happens. 
+
+\[65471 \cdot 25\; \text{ms} = 1637 \; \text{s} \approx 27.28 \; \text{min}\]
+
+So after approximately half an hour the Timer overflows. After the Overflow, the Counter resets to 0 and either the Overflow Flag is set, or a Timer overflow interrupt is executed. 
+
+\subsection{c)	Operation Mode: Timer with capture event} \label{task:capture_event}
+
+Here the timer works in the normal timer mode, as described above in \ref{task:counter_reg}. But additionally there is the Capture register. After each capture event (external or internal) happens, the current Counter Register value is copied into the Capture register and a capture flag is set. The counter continues running normally, but the captured register value acts as a timestamp for the event. Therefore, between two capture register entries a time difference can be measured. A Schematic of this process can be seen in Figure \ref{fig:timer_w_capture_event}.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{timer_w_capture_event.png}
+    \caption{Block Schematic of a Timer with capture Event}
+    \label{fig:timer_w_capture_event}
+\end{figure}
+
+As a numerical example we use:
+\begin{align}
+	f_{clk} &= 200\; \text{MHz} \\
+	D_{div} &= 500 000 \\
+	t_{event} &= 2 \; \text{s}
+\end{align}
+
+The Timer frequency can be calculated the same way as in task \ref{task:counter_reg} with 
+
+\[f_{timer} = \frac{f_{clk}}{D_{div}} = 400 \; \text{Hz}\]
+
+Therefore each Tick length is $\frac{1}{400\;\text{Hz}} = 2.5 \; \text{ms}$ . Which means after the $2\;\text{s}$ the counter has counted to
+
+\[N = \frac{t}{T_{tick}} = \frac{2}{2.5 \; \text{ms}} = 800\]
+
+This has not resulted in an Overflow, because $800 \ll 2^{16}$ therefore the overflow flag has not been set.
+At $t = 2\;\text{s}$ the Capture register has the same value as the Counter Register ($800$).
+
+The board can then calculate the timespan of this event by this formula:
+
+\[\Delta t = \text{capture value} \cdot T_{tick} = 2 \; \text{s}\]
+
+and more generally, the time span of an event by this formula:
+
+\[\Delta t = \frac{\text{capture register value}\cdot N }{f_{clk}}\]
+
+\subsection{d)	Operation Mode: Timer with compare register}
+
+The Timer here works the same way as in task \ref{task:capture_event} but additionally a compare Register holds a threshold value. If this value is reached, a compare event is triggered. This compare event can be an Interrupt or an external Signal to toggle something outside of the chip. 
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{timer_w_compare_reg.png}
+    \caption{Block Schematic of a Timer with compare Register}
+    \label{fig:timer_w_compare_reg}
+\end{figure}
+
+As a numerical example we use:
+\begin{align}
+	f_{clk} &= 20\; \text{kHz} \\
+	D_{div} &= 10 000 \\
+	\text{Threshold} &= 10
+\end{align}
+
+The Compare Register value is set to 10, this means after 10 clock cycles, a Compare event is executed. The Counter Register and Capture Register start at $0$.
+
+First we calculate the Tick time again as seen in the previous two tasks.
+
+\[T_{tick} = \frac{1}{\frac{f_{clk}}{D_{div}}} = 0.5\;\text{s}\]
+
+In the following Table \ref{tab:compare_reg} we trace every Register value and the Actions of the compare register.
+
+\begin{table}[h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c |}
+		\hline
+		Time [s] & Capture reg. & Counter reg & Compare reg & Action \\
+		\hline
+		0   & 0 & 0  & 10 & none \\
+		0.5 & 0 & 1  & 10 & none \\
+		1   & 0 & 2  & 10 & none \\
+		1.5 & 0 & 3  & 10 & none \\
+		2   & 0 & 4  & 10 & none \\
+		2.5 & 0 & 5  & 10 & none \\
+		3   & 0 & 6  & 10 & none \\
+		3.5 & 0 & 7  & 10 & none \\
+		4   & 0 & 8  & 10 & none \\
+		4.5 & 0 & 9  & 10 & none \\
+		5   & 0 & 10 & 10 & Compare action \\
+		\hline
+	\end{tabular}
+	\caption{Timer trace with Compare Register, Counter Register, Capture Register until an Action is triggered}
+	\label{tab:compare_reg}
+\end{table}
