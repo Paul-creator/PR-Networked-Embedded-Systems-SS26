@@ -1,0 +1,60 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/*",
+                "${workspaceFolder}/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Include/*",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7xx/Include/*"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H743xx"
+            ],
+            "compilerPath": "${env:ELITEBOARDDIR}/arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/*",
+                "${workspaceFolder}/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Include/*",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7xx/Include/*"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H743xx"
+            ],
+            "compilerPath": "${env:ELITEBOARDDIR}/arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "osx",
+            "includePath": [
+                "${workspaceFolder}/*",
+                "${workspaceFolder}/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Include/*",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc/*",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7xx/Include/*",
+                "${workspaceFolder}/periph_drivers/**"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H743xx"
+            ],
+            "compilerPath": "/opt/brew/bin/arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -mfloat-abi=hard",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}

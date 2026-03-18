@@ -1,0 +1,95 @@
+ARM GAS  C:\Users\simon\AppData\Local\Temp\cceDL7zG.s 			page 1
+
+
+   1              		.cpu cortex-m7
+   2              		.arch armv7e-m
+   3              		.fpu fpv5-d16
+   4              		.eabi_attribute 28, 1
+   5              		.eabi_attribute 20, 1
+   6              		.eabi_attribute 21, 1
+   7              		.eabi_attribute 23, 3
+   8              		.eabi_attribute 24, 1
+   9              		.eabi_attribute 25, 1
+  10              		.eabi_attribute 26, 1
+  11              		.eabi_attribute 30, 1
+  12              		.eabi_attribute 34, 1
+  13              		.eabi_attribute 18, 4
+  14              		.file	"usb_otg.c"
+  15              		.text
+  16              	.Ltext0:
+  17              		.cfi_sections	.debug_frame
+  18              		.section	.text.MX_USB_OTG_FS_USB_Init,"ax",%progbits
+  19              		.align	1
+  20              		.global	MX_USB_OTG_FS_USB_Init
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	MX_USB_OTG_FS_USB_Init:
+  26              	.LFB331:
+  27              		.file 1 "Src/usb_otg.c"
+   1:Src/usb_otg.c **** /**
+   2:Src/usb_otg.c ****   ******************************************************************************
+   3:Src/usb_otg.c ****   * @file    usb_otg.c
+   4:Src/usb_otg.c ****   * @brief   This file provides code for the configuration
+   5:Src/usb_otg.c ****   *          of the USB_OTG instances.
+   6:Src/usb_otg.c ****   ******************************************************************************
+   7:Src/usb_otg.c ****   * @attention
+   8:Src/usb_otg.c ****   *
+   9:Src/usb_otg.c ****   * <h2><center>&copy; Copyright (c) 2026 STMicroelectronics.
+  10:Src/usb_otg.c ****   * All rights reserved.</center></h2>
+  11:Src/usb_otg.c ****   *
+  12:Src/usb_otg.c ****   * This software component is licensed by ST under BSD 3-Clause license,
+  13:Src/usb_otg.c ****   * the "License"; You may not use this file except in compliance with the
+  14:Src/usb_otg.c ****   * License. You may obtain a copy of the License at:
+  15:Src/usb_otg.c ****   *                        opensource.org/licenses/BSD-3-Clause
+  16:Src/usb_otg.c ****   *
+  17:Src/usb_otg.c ****   ******************************************************************************
+  18:Src/usb_otg.c ****   */
+  19:Src/usb_otg.c **** 
+  20:Src/usb_otg.c **** /* Includes ------------------------------------------------------------------*/
+  21:Src/usb_otg.c **** #include "usb_otg.h"
+  22:Src/usb_otg.c **** 
+  23:Src/usb_otg.c **** /* USER CODE BEGIN 0 */
+  24:Src/usb_otg.c **** 
+  25:Src/usb_otg.c **** /* USER CODE END 0 */
+  26:Src/usb_otg.c **** 
+  27:Src/usb_otg.c **** /* USB_OTG_FS init function */
+  28:Src/usb_otg.c **** 
+  29:Src/usb_otg.c **** void MX_USB_OTG_FS_USB_Init(void)
+  30:Src/usb_otg.c **** {
+  28              		.loc 1 30 1 view -0
+ARM GAS  C:\Users\simon\AppData\Local\Temp\cceDL7zG.s 			page 2
+
+
+  29              		.cfi_startproc
+  30              		@ args = 0, pretend = 0, frame = 0
+  31              		@ frame_needed = 0, uses_anonymous_args = 0
+  32              		@ link register save eliminated.
+  31:Src/usb_otg.c **** 
+  32:Src/usb_otg.c ****   /* USER CODE BEGIN USB_OTG_FS_Init 0 */
+  33:Src/usb_otg.c **** 
+  34:Src/usb_otg.c ****   /* USER CODE END USB_OTG_FS_Init 0 */
+  35:Src/usb_otg.c **** 
+  36:Src/usb_otg.c ****   /* USER CODE BEGIN USB_OTG_FS_Init 1 */
+  37:Src/usb_otg.c **** 
+  38:Src/usb_otg.c ****   /* USER CODE END USB_OTG_FS_Init 1 */
+  39:Src/usb_otg.c ****   /* USER CODE BEGIN USB_OTG_FS_Init 2 */
+  40:Src/usb_otg.c **** 
+  41:Src/usb_otg.c ****   /* USER CODE END USB_OTG_FS_Init 2 */
+  42:Src/usb_otg.c **** 
+  43:Src/usb_otg.c **** }
+  33              		.loc 1 43 1 view .LVU1
+  34 0000 7047     		bx	lr
+  35              		.cfi_endproc
+  36              	.LFE331:
+  38              		.text
+  39              	.Letext0:
+ARM GAS  C:\Users\simon\AppData\Local\Temp\cceDL7zG.s 			page 3
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 usb_otg.c
+C:\Users\simon\AppData\Local\Temp\cceDL7zG.s:19     .text.MX_USB_OTG_FS_USB_Init:00000000 $t
+C:\Users\simon\AppData\Local\Temp\cceDL7zG.s:25     .text.MX_USB_OTG_FS_USB_Init:00000000 MX_USB_OTG_FS_USB_Init
+
+NO UNDEFINED SYMBOLS

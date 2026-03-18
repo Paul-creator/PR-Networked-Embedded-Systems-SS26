@@ -29,6 +29,8 @@ This is typically used:
 In PWM (Pulse Width Modulation) Mode, the Timer produces a pulse-width modulation signal by comparing the counter value against a compare register.  
 There are multiple different modes, like Fast-PWM, which starts at 0 and counts up to the maximum value and then resets, and Phase Correct PWM, which counts up and down for smoother signals.
 
+\pagebreak
+
 This is typically used:
 \begin{itemize}
     \item to generate Analog Voltages in combination with a Filter
@@ -42,7 +44,7 @@ This is typically used:
 In this Example the Timer is used in combination with the Counter Register.
 As seen in the Block Schematic in Figure \ref{fig:timer_w_counter_reg} the Clock signal is divided and then fed into the Counter Register.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{timer_w_counter_reg.png}
     \caption{Block Schematic of a Timer with counter Register}
@@ -51,19 +53,32 @@ As seen in the Block Schematic in Figure \ref{fig:timer_w_counter_reg} the Clock
 
 As a numerical example we use:
 \begin{align}
-	f_{clk} &= 10 \; \text{kHz} \\
-	D_{div} &= 250 \\
+	f_{clk} &= \SI{10}{\kilo\hertz} \\
+	D_{div} &= \num{250} \\
 	f_{timer} &= \frac{f_{clk}}{D_{div}} 
-	= \frac{10 \; \text{kHz}}{250} 
-	= 40 \; \text{Hz}
+	= \frac{\SI{10}{\kilo\hertz}}{\num{250}} 
+	= \SI{40}{\hertz}
 \end{align}
 
-This means that the Prescaler reduces the Clock-tick timing from one tick every \[\frac{1}{f_{clk}} = 100 \; \mu s\] to one tick every \[\frac{1}{f_{timer}} = 25 \; \text{ms}\]
+This means that the Prescaler reduces the Clock-tick timing from one tick every 
+\begin{align}
+\frac{1}{f_{clk}} = \SI{100}{\micro\second}
+\end{align}
 
-The Counter value at $t = 0 \; \text{s}$ is $65$. The Maximum value of the 16-Bit Counter is $2^{16} = 65536$. This means that the overflow occurs after $65536 - 65 = 65471$ counts.
-This multiplied by the time per count results in the Time left until the overflow happens. 
+to one tick every 
+\begin{align}
+\frac{1}{f_{timer}} = \SI{25}{\milli\second}
+\end{align}
 
-\[65471 \cdot 25\; \text{ms} = 1637 \; \text{s} \approx 27.28 \; \text{min}\]
+The Counter value at $t = \SI{0}{\second}$ is \num{65}. The maximum value of the 16-bit counter is $2^{16} = \num{65536}$. This means that the overflow occurs after 
+\begin{align}
+2^{16} - 65 = \num{65471} \text{ counts}.
+\end{align} 
+
+Multiplying this by the time per count gives the time left until the overflow occurs:  
+\begin{align}
+\num{65471} \cdot \SI{25}{\milli\second} = \SI{1637}{\second} \approx \SI{27.28}{\minute}
+\end{align}
 
 So after approximately half an hour the Timer overflows. After the Overflow, the Counter resets to 0 and either the Overflow Flag is set, or a Timer overflow interrupt is executed. 
 
@@ -71,7 +86,7 @@ So after approximately half an hour the Timer overflows. After the Overflow, the
 
 Here the timer works in the normal timer mode, as described above in \ref{task:counter_reg}. But additionally there is the Capture register. After each capture event (external or internal) happens, the current Counter Register value is copied into the Capture register and a capture flag is set. The counter continues running normally, but the captured register value acts as a timestamp for the event. Therefore, between two capture register entries a time difference can be measured. A Schematic of this process can be seen in Figure \ref{fig:timer_w_capture_event}.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{timer_w_capture_event.png}
     \caption{Block Schematic of a Timer with capture Event}
@@ -80,35 +95,43 @@ Here the timer works in the normal timer mode, as described above in \ref{task:c
 
 As a numerical example we use:
 \begin{align}
-	f_{clk} &= 200\; \text{MHz} \\
-	D_{div} &= 500 000 \\
-	t_{event} &= 2 \; \text{s}
+	f_{clk} &= \SI{200}{\mega\hertz} \\
+	D_{div} &= \num{500000} \\
+	t_{event} &= \SI{2}{\second}
+\end{align}
+The Timer frequency can be calculated the same way as in task \ref{task:counter_reg} with 
+\begin{align}
+f_{timer} = \frac{f_{clk}}{D_{div}} = \SI{400}{\hertz}
 \end{align}
 
-The Timer frequency can be calculated the same way as in task \ref{task:counter_reg} with 
+Therefore each tick length is 
+\begin{align}
+\frac{1}{\SI{400}{\hertz}} = \SI{2.5}{\milli\second}.
+\end{align} 
 
-\[f_{timer} = \frac{f_{clk}}{D_{div}} = 400 \; \text{Hz}\]
+This means after \SI{2}{\second} the counter has counted to
+\begin{align}
+N = \frac{t}{T_{tick}} = \frac{\SI{2}{\second}}{\SI{2.5}{\milli\second}} = \num{800}.
+\end{align}
 
-Therefore each Tick length is $\frac{1}{400\;\text{Hz}} = 2.5 \; \text{ms}$ . Which means after the $2\;\text{s}$ the counter has counted to
+This has not resulted in an overflow, because \num{800} $\ll 2^{16}$; therefore, the overflow flag has not been set.  
+At $t = \SI{2}{\second}$ the Capture register has the same value as the Counter Register (\num{800}).
 
-\[N = \frac{t}{T_{tick}} = \frac{2}{2.5 \; \text{ms}} = 800\]
-
-This has not resulted in an Overflow, because $800 \ll 2^{16}$ therefore the overflow flag has not been set.
-At $t = 2\;\text{s}$ the Capture register has the same value as the Counter Register ($800$).
-
-The board can then calculate the timespan of this event by this formula:
-
-\[\Delta t = \text{capture value} \cdot T_{tick} = 2 \; \text{s}\]
+The board can then calculate the timespan of this event using:
+\begin{align}
+\Delta t = \text{capture value} \cdot T_{tick} = \SI{2}{\second}.
+\end{align}
 
 and more generally, the time span of an event by this formula:
-
-\[\Delta t = \frac{\text{capture register value}\cdot N }{f_{clk}}\]
+\begin{align}
+	\Delta t = \frac{\text{capture register value}\cdot N }{f_{clk}}
+\end{align}
 
 \subsection{d)	Operation Mode: Timer with compare register}
 
 The Timer here works the same way as in task \ref{task:capture_event} but additionally a compare Register holds a threshold value. If this value is reached, a compare event is triggered. This compare event can be an Interrupt or an external Signal to toggle something outside of the chip. 
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{timer_w_compare_reg.png}
     \caption{Block Schematic of a Timer with compare Register}
@@ -117,16 +140,17 @@ The Timer here works the same way as in task \ref{task:capture_event} but additi
 
 As a numerical example we use:
 \begin{align}
-	f_{clk} &= 20\; \text{kHz} \\
-	D_{div} &= 10 000 \\
-	\text{Threshold} &= 10
+	f_{clk} &= \SI{20}{\kilo\hertz} \\
+	D_{div} &= \num{10000} \\
+	\text{Threshold} &= \num{10}
 \end{align}
 
 The Compare Register value is set to 10, this means after 10 clock cycles, a Compare event is executed. The Counter Register and Capture Register start at $0$.
 
 First we calculate the Tick time again as seen in the previous two tasks.
-
-\[T_{tick} = \frac{1}{\frac{f_{clk}}{D_{div}}} = 0.5\;\text{s}\]
+\begin{align}
+T_{tick} = \frac{1}{\frac{f_{clk}}{D_{div}}} = \SI{0.5}{\second}
+\end{align}
 
 In the following Table \ref{tab:compare_reg} we trace every Register value and the Actions of the compare register.
 

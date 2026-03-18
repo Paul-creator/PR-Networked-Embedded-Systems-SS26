@@ -1,27 +1,106 @@
-\section{Task A: Blink an LED}
+\section{Task A: Blink an LED with a Timer}\label{tsk:task_a}
 
 \subsection{a) Calculations:}
+In this Task we will use a Timer to make the LED on the 7-Segment Display Blink. We need to calculate the values for the Prescaler and the Counter Period.
+\begin{align}
+	T_{LED} &= \SI{500}{\milli\second} \\
+	f &= \frac{1}{T_{LED}} = \SI{2}{\hertz} \\
+	f_{clk} &= \SI{75}{\mega\hertz}
+\end{align}
+
+Now we can use Formula \ref{eq:timer2} to calculate the Prescaler value (PSC) and the Counter Period (ARR).
+\begin{align}\label{eq:timer2}
+	f = \frac{f_{clk}}{(PSC + 1)(ARR + 1)}
+\end{align}
+
+From this we can solve for ARR and PSC to get
+\begin{align}\label{eq:arr}
+	ARR &= \frac{f_{clk}}{f(PSC + 1)} - 1
+\end{align}
+
+With the chosen Prescaler being $2500$ the PSC value results in 
+\begin{align}
+	PSC + 1 &= 2500 \\
+	PSC &= 2499
+\end{align}
+
+Now we can calculate our ARR using \ref{eq:arr}, which results in our maximal Counter Value being 
+\begin{align}
+	ARR &= \frac{\SI{75}{\mega\hertz}}{\SI{2}{\hertz} \cdot \num{2500}} - 1 = \num{29999}
+\end{align}
+
 \begin{table}[h]
     \begin{tabularx}{0.6\textwidth}{|X|X|}
         \hline
-        Cycle Time & \\ \hline
-        Duty Cycle & \\ \hline
-        LED ON Time & \\ \hline
-        LED OFF Time & \\ \hline
+        Cycle Time & $\SI{500}{\milli \second}$\\ \hline
+        Duty Cycle & $50 \; \%$\\ \hline
+        LED ON Time & $\SI{250}{\milli \second}$\\ \hline
+        LED OFF Time & $\SI{250}{\milli \second}$\\ \hline
     \end{tabularx}
 \end{table}
-\textit{Use the table above and show the necessary calculation:}
-% Deine Rechnung hier
 
+\pagebreak
 \subsection{b) Implementation:}
-\textit{Describe your solution. Add all relevant code snippets into a listing or as screenshots and describe their purpose.}
-\begin{lstlisting}
-// Beispiel Code
+Now we can configure the timer in the STM32CubeMX Program as seen in Figure \ref{fig:config_timer2}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{timer_2_config.png}
+	\caption{STM32CubeMX configuration of Timer 2 with the ARR and PSC values entered}
+	\label{fig:config_timer2}
+\end{figure}
+
+The GPIO Pins also have to be configured. This can be seen in Figure \ref{fig:config_gpio_task_a}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{config_gpio_task_a.png}
+	\caption{STM32CubeMX configuration of the GPIO Pins}
+	\label{fig:config_gpio_task_a}
+\end{figure}
+
+After this configuration we generate the Files and switch over to the IDE, in our case VSCode.
+
+Here we need to add the actual functionality of the program. The generated Files only save us the configuration work.
+In the main method we add the following lines of code.
+
+\begin{lstlisting}[language=C, numbers=none, caption={Toggle LED with TIM2 update event}, captionpos=b, label={cd:taska}]
+__HAL_TIM_SET_COUNTER(&htim2, 0); // Start: set counter and LED to 0
+HAL_GPIO_WritePin(GPIOJ, SEGDP_Pin, GPIO_PIN_RESET);
+
+HAL_TIM_Base_Start(&htim2); // Start TIM2 timer.
+
+while (1)
+{
+	/* Check if event occurred*/
+	if (__HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_UPDATE) != RESET)
+	{   
+		__HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE); 
+		//Clear the update flag
+		HAL_GPIO_TogglePin(GPIOJ, SEGDP_Pin); 
+		// Toggle the LED on PJ7 
+		
+	}
+}
 \end{lstlisting}
 
+Here we first set the Timer and LED to the start value at 0, so there are no undefined states at the start of the program.
+Then in the infinite while loop, we do a simple check if the Timer Update flag has been set, and if so, toggle the LED and reset the timer to start again. This will result in a Blinking LED with a Period of 
+$T = \SI{500}{\milli\second}$
+This signal is then output on the PJ7 Pin, which is the decimal point on the 7-Segment Display. The on state can be seen in Figure \ref{fig:task_a_led_on}
+
+
 \subsection{c) Results:}
-\textit{Add a picture of your board with the LED on}
-%\includegraphics[width=0.6\textwidth]{board_led_a.jpg}
+Here in Figure \ref{fig:blink_task_a} the LED can be seen as it is turned on.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{task_a.JPEG}
+	\caption{LED turned on by during the Blinking cycle}
+	\label{fig:blink_task_a}
+\end{figure}
 
 \subsection{d) Discussion:}
-\textit{Describe your experiences (e.g., design decisions, problems, lesson learned). Which part of the code will be reusable?}
+By using the timer in this task, the LED is no longer controlled by delay loops. Instead, the timer provides a precise time base, and the application code only needs to respond to the update flag to toggle the LED. This separates the generation of the time interval, which is handled by the hardware timer, from the application logic that controls the LED. As a result, the code is easier to read, understand, and modify.
+
+Using timers in this way also lays a solid foundation for future tasks. Timers can serve as flexible time bases or pulse sources, and this approach demonstrates the important embedded programming principle of letting dedicated hardware peripherals handle periodic events, rather than trying to emulate them entirely in software.

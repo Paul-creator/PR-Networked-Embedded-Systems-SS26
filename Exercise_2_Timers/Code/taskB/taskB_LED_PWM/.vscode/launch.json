@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Cortex debug",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "bmp",
+            "BMPGDBSerialPort": "dummy",
+			"linux": {
+			    "armToolchainPath": "${env:ELITEBOARDDIR}",
+				"BMPGDBSerialPort": "/dev/ttyACM0",
+                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"] /*activate srst and reattach+load*/
+			},
+			"windows": {
+			    "armToolchainPath": "${env:ELITEBOARDDIR}",
+                "BMPGDBSerialPort": "\\\\.\\COM11", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
+                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
+            },
+            "osx": {
+			    "armToolchainPath": "/opt/brew/bin/",
+                "BMPGDBSerialPort": "/dev/cu.usbmodem79A580A31", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
+                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
+            },
+            "runToEntryPoint": "main",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/taskB_LED_PWM.elf",
+            "svdFile": "./../STM32H743x.svd",
+            "preLaunchTask": "Build project"
+        }
+    ]
+}

@@ -1,22 +1,151 @@
 \section{Task B: Vary the Cycle Time}
 
 \subsection{a) Calculations:}
-\textit{Fill in the table. First, calculate the values that you need for the given task. Then, develop generic descriptions that you can use for your reusable implementation.}
+In this Task we will use Timer8 to generate a PWM Signal and using this signal to dimm an LED. Additionaly we will be changing the dutycycle of the PWM Signal with the Buttons to make the LED brighter or Darker. First we will calculate the Prescaler and Counter Period analog to the calculation in Task A.
+\begin{align}
+	f_{clk} &= \SI{75}{\mega\hertz}
+\end{align}
+
+We will use Formula \ref{eq:timer8} to calculate the Prescaler value (PSC) and the Counter Period (ARR).
+\begin{align}\label{eq:timer8}
+	f = \frac{f_{clk}}{(PSC + 1)(ARR + 1)}
+\end{align}
+
+From this we can solve for ARR to get
+\begin{align}\label{eq:arr}
+	ARR &= \frac{f_{clk}}{f(PSC + 1)} - 1
+\end{align}
+
+With the chosen Prescaler being $250$ the PSC value results in 
+\begin{align}
+	PSC + 1 &= 250 \\
+	PSC &= 249
+\end{align}
+
+Now we can calculate our ARR using \ref{eq:arr}, which results in our maximal Counter Value being 
+\begin{align}
+	ARR &= \frac{\SI{75}{\mega\hertz}}{\SI{500}{\hertz} \cdot \num{250}} - 1 = \num{599}
+\end{align}
+
+With these values the desired PWM Frequency of $\SI{500}{\hertz}$ is generated.
 
 \begin{table}[h]
-    \centering
-    \begin{tabularx}{\textwidth}{|l|X|X|X|X|}
-        \hline
-         & \centering \textbf{LOW} & \centering \textbf{MID} & \centering \textbf{HIGH} & \centering \textbf{Generic} \tabularnewline \hline
-        Cycle Time & & & & tCycle \\ \hline
-        Duty Cycle & & & & x\% \\ \hline
-        LED ON Time & & & & \\ \hline
-        LED OFF Time & & & & \\ \hline
-    \end{tabularx}
+	\centering
+	\begin{tabular}{|c|c|c|c|}
+		\hline
+		& \textbf{LOW} & \textbf{MID} & \textbf{HIGH} \\ \hline
+		Cycle Time & \SI{2}{\milli\second} & \SI{2}{\milli\second} & \SI{2}{\milli\second} \\ \hline
+		Duty Cycle & $0\,\%$ & $50\,\%$ & $100\,\%$ \\ \hline
+		LED ON Time & \SI{2}{\milli\second} & \SI{1}{\milli\second} & \SI{0}{\milli\second} \\ \hline
+		LED OFF Time & \SI{0}{\milli\second} & \SI{1}{\milli\second} & \SI{2}{\milli\second} \\ \hline
+	\end{tabular}
+	\caption{LED timing for different PWM duty cycles}
+	\label{tab:led_pwm}
 \end{table}
+\pagebreak
 
 \subsection{b) Implementation:}
-\textit{Describe your solution...}
+Now we can configure the timer in the STM32CubeMX Program as seen in Figure \ref{fig:config_timer8}.
 
-\subsection{c) Discussion:}
-\textit{Describe your experiences...}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{config_timer8.png}
+	\caption{STM32CubeMX configuration of Timer 8 with the ARR and PSC values entered}
+	\label{fig:config_timer8}
+\end{figure}
+
+Important to note here, that the Output pin of the Timer 8 has to be changed to the correct Pin. The default Pin is PI6, but to use the LED on the 7-Segment Display we will need to change this to PJ6. This can be done by Selecting the Pin PJ7 in the Pinout view in the STM32CubeMX Software, and changing its function to the Timer 8 Output.
+
+The GPIO Pins also have to be configured. This can be seen in Figure \ref{fig:gpio_config_task_b}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{gpio_config_task_b.png}
+	\caption{STM32CubeMX configuration of the GPIO Pins}
+	\label{fig:gpio_config_task_b}
+\end{figure}
+\pagebreak
+First we need to add a method to calculate the brightness of the LED. First we clip the input value to the maximum and minimum value, if it is too big. If it is a valid input, we calculate the dutycycle by using the step value as the percentage. Then we need to find the comparator value, where the timer event triggers.
+
+\begin{lstlisting}[language=C, numbers=none, caption={Set the brightness Level of the LED by changing the dutycycle of the PWM Signal}, captionpos=b]
+static void set_led_brightness(uint8_t step)
+{
+	if (step > 10U)
+	{
+		step = 10U;
+	}
+	else if(step < 0U){
+		step = 0U;
+	}
+	
+	uint32_t duty_cycle_percent = (uint32_t)step * 10U;
+	uint32_t period_ticks = __HAL_TIM_GET_AUTORELOAD(&htim8);
+	uint32_t comp_val = (period_ticks * duty_cycle_percent) / 100U;
+	
+	__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, comp_val);
+	
+}
+\end{lstlisting}
+
+In the main method we add the following lines of code to set the brightness of the LED at the start to $50 \%$.
+
+\begin{lstlisting}[language=C, numbers=none, caption={Setting the base brightness and starting the PWM Timer}, captionpos=b]
+HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+uint8_t bright_step = 5U;   // start at 50% brightness
+
+set_led_brightness(bright_step);
+\end{lstlisting}
+
+In the while loop we add the Button checks and the adding and subtracting of the brightness level. To make the brightness easier to control, we also debounce the buttons with a small delay.
+
+\pagebreak
+\begin{lstlisting}[language=C, numbers=none, caption={Using the Buttons BTN1/2 to increase and decrease the LED brightness}, captionpos=b]
+while (1)
+{
+	/* BTN1 (PJ12): increase brightness */
+	if (HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin) == GPIO_PIN_RESET)
+	{
+		if (bright_step < 10U)
+		{
+			bright_step++;
+			set_led_brightness(bright_step);
+		}
+		HAL_Delay(150); // debounce
+	}
+	
+	/* BTN2 (PJ13): decrease brightness */
+	if (HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin) == GPIO_PIN_RESET)
+	{
+		if (bright_step > 0U)
+		{
+			bright_step--;
+			set_led_brightness(bright_step);
+		}
+		HAL_Delay(150);
+	}
+}
+\end{lstlisting}
+
+\subsection{c) Results:}
+Here in Figure \ref{fig:task_b_lo} the LED can be seen as it is turned on at $10\%$ brightness.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{task_b_lo.JPEG}
+	\caption{LED set to $10 \%$ brightness}
+	\label{fig:task_b_lo}
+\end{figure}
+
+And here in Figure \ref{fig:task_b_hi} the LED can be seen as it is turned on at full brightness.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{task_b_hi.JPEG}
+	\caption{LED set to full brightness}
+	\label{fig:task_b_hi}
+\end{figure}
+
+\subsection{d) Discussion:}
+This task shows how a timer in PWM mode can be used to control the LED brightness in discrete steps. Since TIM8 channel 2 generates the PWM waveform entirely in hardware, the CPU load is minimal. The application code only needs to update the compare value when the user presses a button. The chosen step size of $10 \%$ provides clearly visible brightness changes while keeping the implementation straightforward. 
+Button presses are handled by polling with a short delay for debouncing, which is sufficient for this lab exercise. In more advanced applications, this could be replaced by interrupt-based input handling for improved responsiveness.
