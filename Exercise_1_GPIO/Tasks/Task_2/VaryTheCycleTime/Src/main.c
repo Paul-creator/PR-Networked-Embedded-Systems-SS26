@@ -143,9 +143,14 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM17_Init();
   MX_USB_OTG_FS_USB_Init();
-  /* USER CODE BEGIN 2 */
-  const uint32_t onTime = 1000;
-  const uint32_t offTime = 2000;
+
+  const float tCycleLow=1000;
+  const float tCycleMid=500;
+  const float tCycleHigh=200;
+  const float dutyCycle=0.666; 
+  
+  uint32_t OnTime;
+  uint32_t OffTime; 
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,7 +158,35 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    OnTime=(uint32_t) (tCycleLow*dutyCycle);
+    OffTime=(uint32_t) (tCycleLow-OnTime);
+    for(int i=0;i<15;i++)
+    {
+      GPIOJ->ODR |= SEGDP_Pin;
+      HAL_Delay(OnTime);
+      GPIOJ->ODR &= ~SEGDP_Pin;
+      HAL_Delay(OffTime);
+    }
 
+    OnTime=(uint32_t) (tCycleMid*dutyCycle);
+    OffTime=(uint32_t) (tCycleMid-OnTime);
+    for(int j=0;j<15;j++)
+    {
+      GPIOJ->ODR |= SEGDP_Pin;
+      HAL_Delay(OnTime);
+      GPIOJ->ODR &= ~SEGDP_Pin;
+      HAL_Delay(OffTime);
+    }
+
+    OnTime=(uint32_t) (tCycleHigh*dutyCycle);
+    OffTime=(uint32_t) (tCycleHigh-OnTime);
+    for(int k=0;k<15;k++)
+    {
+      GPIOJ->ODR |= SEGDP_Pin;
+      HAL_Delay(OnTime);
+      GPIOJ->ODR &= ~SEGDP_Pin;
+      HAL_Delay(OffTime);
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

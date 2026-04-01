@@ -5,3 +5,4 @@
 *.gz
 *_region_*
 build
+*.synctex(busy)
