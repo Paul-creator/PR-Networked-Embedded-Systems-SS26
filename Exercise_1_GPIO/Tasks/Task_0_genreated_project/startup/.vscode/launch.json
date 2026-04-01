@@ -27,7 +27,7 @@
             },
             "runToEntryPoint": "main",
             "cwd": "${workspaceFolder}",
-            "executable": "./build/templatenew.elf",
+            "executable": "./build/startup.elf",
             "svdFile": "./../STM32H743x.svd",
             "preLaunchTask": "Build project"
         }
