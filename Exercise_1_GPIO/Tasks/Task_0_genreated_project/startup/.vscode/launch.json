@@ -5,31 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Cortex debug",
-            "type": "cortex-debug",
-            "request": "launch",
-            "servertype": "bmp",
-            "BMPGDBSerialPort": "dummy",
-			"linux": {
-			    "armToolchainPath": "${env:ELITEBOARDDIR}",
-				"BMPGDBSerialPort": "/dev/ttyACM0",
-                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"] /*activate srst and reattach+load*/
-			},
-			"windows": {
-			    "armToolchainPath": "${env:ELITEBOARDDIR}",
-                "BMPGDBSerialPort": "\\\\.\\COM8", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
-                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
-            },
-            "osx": {
-			    "armToolchainPath": "/opt/brew/bin/",
-                "BMPGDBSerialPort": "/dev/cu.usbmodem79A580A31", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
-                "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
-            },
-            "runToEntryPoint": "main",
-            "cwd": "${workspaceFolder}",
-            "executable": "./build/startup.elf",
-            "svdFile": "./../STM32H743x.svd",
-            "preLaunchTask": "Build project"
-        }
+  "name": "Cortex debug",
+  "type": "cortex-debug",
+  "request": "launch",
+  "servertype": "bmp",
+  "BMPGDBSerialPort": "/dev/serial/by-id/usb-Black_Sphere_Technologies_Black_Magic_Probe_C2DC952B-if00",
+  "armToolchainPath": "/home/paul/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin",
+  "gdbPath": "/home/paul/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+  "cwd": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/startup",
+  "executable": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/startup/build/startup.elf",
+  "svdFile": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/STM32H743x.svd",
+  "showDevDebugOutput": "raw",
+  "preLaunchCommands": [
+    "monitor swdp_scan",
+    "attach 1",
+    "load"
+  ]
+}
     ]
 }
