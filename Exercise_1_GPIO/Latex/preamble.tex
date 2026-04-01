@@ -6,14 +6,16 @@
 \usepackage{fancyhdr}
 \usepackage{graphicx}
 \usepackage{tabularx}
+\usepackage{array}
 \usepackage{xcolor}
+\usepackage{beramono}
 \usepackage{titlesec}
 \usepackage{listings}
 \usepackage{helvet}
 \renewcommand{\familydefault}{\sfdefault}
 
 % --- BILDERPFAD DEFINIEREN ---
-\graphicspath{{images/}} 
+\graphicspath{{images/}}
 
 % --- Header & Footer ---
 \pagestyle{fancy}
@@ -31,10 +33,31 @@
 \setlength{\parskip}{6pt}
 
 % Code Style
-\lstset{
-    basicstyle=\ttfamily\small,
-    breaklines=true,
-    frame=single,
-    numbers=left,
-    keywordstyle=\color{blue}
+\definecolor{codebg}{rgb}{0.97,0.97,0.97}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.0,0.2,0.6}
+\definecolor{codegreen}{rgb}{0.0,0.5,0.0}
+\definecolor{codered}{rgb}{0.6,0.0,0.0}
+\lstdefinestyle{modernc}{
+	language=C,
+	backgroundcolor=\color{codebg},
+	basicstyle=\ttfamily\small,
+	keywordstyle=\color{codeblue}\bfseries,
+	commentstyle=\color{codegreen}\itshape,
+	stringstyle=\color{codered},
+	numberstyle=\tiny\color{codegray},
+	numbers=left,
+	stepnumber=1,
+	numbersep=8pt,
+	tabsize=2,
+	showspaces=false,
+	showstringspaces=false,
+	breaklines=true,
+	breakatwhitespace=true,
+	frame=single,
+	rulecolor=\color{black},
+	captionpos=b,
+	keepspaces=true,
+	columns=flexible
 }
+\lstset{style=modernc}

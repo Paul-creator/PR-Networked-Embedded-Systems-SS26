@@ -3,22 +3,67 @@
 \section{Task B: Vary the Cycle Time}
 
 \subsection{a) Calculations:}
-\textit{Fill in the table. First, calculate the values that you need for the given task. Then, develop generic descriptions that you can use for your reusable implementation.}
+
+Gegeben sind drei Zykluszeiten und ein konstanter Duty Cycle von \(D = 66.6\%\).
 
 \begin{table}[h]
-    \centering
-    \begin{tabularx}{\textwidth}{|l|X|X|X|X|}
-        \hline
-         & \centering \textbf{LOW} & \centering \textbf{MID} & \centering \textbf{HIGH} & \centering \textbf{Generic} \tabularnewline \hline
-        Cycle Time & & & & tCycle \\ \hline
-        Duty Cycle & & & & x\% \\ \hline
-        LED ON Time & & & & \\ \hline
-        LED OFF Time & & & & \\ \hline
-    \end{tabularx}
+	\centering
+	\begin{tabular}{|l|c|c|c|c|}
+		\hline
+		             & \textbf{LOW} & \textbf{MID} & \textbf{HIGH} & \textbf{Generic}               \\ \hline
+		Cycle Time   & 1000 ms      & 500 ms       & 200 ms        & $t_{Cycle}$                    \\ \hline
+		Duty Cycle   & 66.6\%       & 66.6\%       & 66.6\%        & $D$                            \\ \hline
+		LED ON Time  & 666 ms       & 333 ms       & 133 ms        & $t_{on} = D \cdot t_{Cycle}$   \\ \hline
+		LED OFF Time & 334 ms       & 167 ms       & 67 ms         & $t_{off} = t_{Cycle} - t_{on}$ \\ \hline
+	\end{tabular}
 \end{table}
 
 \subsection{b) Implementation:}
-\textit{Describe your solution...}
+
+Die Zykluszeit wird zwischen drei Stufen (LOW, MID, HIGH) variiert. Für jede Stufe werden Ein- und Ausschaltzeit aus der aktuellen Zykluszeit und dem festen Duty Cycle berechnet.
+
+Die Werte werden in einem Array gespeichert und in einer Schleife durchlaufen. Für jede Stufe blinkt die LED genau 15 Mal, bevor zur nächsten Zykluszeit gewechselt wird.
+
+\begin{lstlisting}
+  /* USER CODE BEGIN 2 */
+  const float tCycleLow = 1000;
+  const float tCycleMid = 500;
+  const float tCycleHigh = 200;
+  const float dutyCycle = 0.666; 
+  
+  uint32_t OnTime;
+  uint32_t OffTime; 
+
+  float cycles[3] = {tCycleLow, tCycleMid, tCycleHigh};
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+    for(int level = 0; level < 3; level++)
+    {
+      float currentCycle = cycles[level];
+
+      OnTime = (uint32_t)(currentCycle * dutyCycle);
+      OffTime = (uint32_t)(currentCycle - OnTime);
+
+      for(int cnt = 0; cnt < 15; cnt++)
+      {
+        GPIOJ->ODR |= SEGDP_Pin;
+        HAL_Delay(OnTime);
+        GPIOJ->ODR &= ~SEGDP_Pin;
+        HAL_Delay(OffTime);
+      }
+    }
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+\end{lstlisting}
 
 \subsection{c) Discussion:}
-\textit{Describe your experiences...}
+
+Die Berechnung ist generisch und wiederverwendbar. Der Cast von \texttt{float} auf \texttt{uint32\_t} ist notwendig für \texttt{HAL\_Delay()}, führt aber zu kleinen Rundungsfehlern.
+
+\texttt{HAL\_Delay()} bleibt blockierend.

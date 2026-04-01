@@ -3,28 +3,39 @@
 \section{Task A: Blink an LED}
 
 \subsection{a) Calculations:}
-\begin{table}[h]
-	\begin{tabularx}{0.6\textwidth}{|X|X|}
-		\hline
-		Cycle Time   & 3 sek  \\ \hline
-		Duty Cycle   & 66.6\% \\ \hline
-		LED ON Time  & 2 sek  \\ \hline
-		LED OFF Time & 1 sek  \\ \hline
-	\end{tabularx}
-\end{table}
 
-\textit{Use the table above and show the necessary calculation:}
-% Deine Rechnung hier
+Gegeben sind \(T = 3\,\mathrm{s}\) und \(D = 66.6\%\).
+
+\[
+	t_{\mathrm{on}} = T \cdot D = 3\,\mathrm{s} \cdot 0.666 \approx 2\,\mathrm{s}
+\]
+\[
+	t_{\mathrm{off}} = T - t_{\mathrm{on}} = 3\,\mathrm{s} - 2\,\mathrm{s} = 1\,\mathrm{s}
+\]
 
 \subsection{b) Implementation:}
-\textit{Describe your solution. Add all relevant code snippets into a listing or as screenshots and describe their purpose.}
+
+Die LED wird über \texttt{PJ7 (SEGDP)} gesteuert. In der Endlosschleife wird der Pin gesetzt (LED an), anschließend für die Einschaltzeit gewartet und danach wieder gelöscht (LED aus). Die Zeiten werden mit \texttt{HAL\_Delay()} realisiert.
+
 \begin{lstlisting}
-// Beispiel Code
+  /* USER CODE BEGIN 2 */
+  const uint32_t onTime = 1000;
+  const uint32_t offTime = 2000;
+  /* USER CODE END 2 */
+
+  while (1)
+  {
+    GPIOJ->ODR |= SEGDP_Pin;
+    HAL_Delay(onTime);
+    GPIOJ->ODR &= ~SEGDP_Pin;
+    HAL_Delay(offTime);
+  }
 \end{lstlisting}
 
 \subsection{c) Results:}
-\textit{Add a picture of your board with the LED on}
-%\includegraphics[width=0.6\textwidth]{board_led_a.jpg}
+
+Die LED blinkt mit der gewünschten Periode von \(3\,\mathrm{s}\) und ist dabei länger eingeschaltet als ausgeschaltet (ca. \(2\,\mathrm{s}\) EIN, \(1\,\mathrm{s}\) AUS).
 
 \subsection{d) Discussion:}
-\textit{Describe your experiences (e.g., design decisions, problems, lesson learned). Which part of the code will be reusable?}
+
+Die Lösung ist einfach und übersichtlich durch feste Zeitkonstanten. \texttt{HAL\_Delay()} ist jedoch blockierend. Wiederverwendbar sind die GPIO-Steuerung und die Schleifenstruktur.

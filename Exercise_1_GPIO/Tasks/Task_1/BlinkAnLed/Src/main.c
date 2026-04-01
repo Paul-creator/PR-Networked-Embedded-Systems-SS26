@@ -143,6 +143,7 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM17_Init();
   MX_USB_OTG_FS_USB_Init();
+
   /* USER CODE BEGIN 2 */
   const uint32_t onTime = 1000;
   const uint32_t offTime = 2000;
