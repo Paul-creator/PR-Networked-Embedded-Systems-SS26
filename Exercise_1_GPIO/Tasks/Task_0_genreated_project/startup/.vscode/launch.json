@@ -21,13 +21,13 @@
                 "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
             },
             "osx": {
-			    "armToolchainPath": "/opt/homebrew/bin/",
-                "BMPGDBSerialPort": "/dev/cu.usbmodemC2DC952B1", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
+			    "armToolchainPath": "/opt/brew/bin/",
+                "BMPGDBSerialPort": "/dev/cu.usbmodem79A580A31", /*If any of your ports are 10 or over, use this format: \\.\COM10*/
                 "preLaunchCommands": ["mon connect_srst enable","mon hard_srst","mon swdp_scan","att 1","load"], /*activate srst and reattach+load*/
             },
             "runToEntryPoint": "main",
             "cwd": "${workspaceFolder}",
-            "executable": "./build/${workspaceFolderBasename}.elf",
+            "executable": "./build/templatenew.elf",
             "svdFile": "./../STM32H743x.svd",
             "preLaunchTask": "Build project"
         }

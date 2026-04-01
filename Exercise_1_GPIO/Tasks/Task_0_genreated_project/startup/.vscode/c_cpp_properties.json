@@ -50,7 +50,7 @@
                 "USE_HAL_DRIVER",
                 "STM32H743xx"
             ],
-            "compilerPath": "/opt/homebrew/bin/arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -mfloat-abi=hard",
+            "compilerPath": "/opt/brew/bin/arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -mfloat-abi=hard",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64"
