@@ -6,17 +6,60 @@
 \section{Task C: Vary the Duty Cycle}
 
 \subsection{a) Calculations:}
+
+Gegeben ist eine feste Zykluszeit von \(T = 2000\,\mathrm{ms}\) und drei Duty Cycles.
+
 \begin{table}[h]
 	\centering
-	\begin{tabularx}{\textwidth}{|l|X|X|X|X|}
+	\begin{tabular}{|l|c|c|c|c|}
 		\hline
-		             & \centering \textbf{Step 1} & \centering \textbf{Step 2} & \centering \textbf{Step 3} & \centering \textbf{Generic} \tabularnewline \hline
-		Cycle Time   & test                       &                            &                            & tCycle                                             \\ \hline
-		Duty Cycle   &                            &                            &                            & x\%                                                \\ \hline
-		LED ON Time  &                            &                            &                            &                                                    \\ \hline
-		LED OFF Time &                            &                            &                            &                                                    \\ \hline
-	\end{tabularx}
+		             & \textbf{Step 1} & \textbf{Step 2} & \textbf{Step 3} & \textbf{Generic}               \\ \hline
+		Cycle Time   & 2000 ms         & 2000 ms         & 2000 ms         & $t_{Cycle}$                    \\ \hline
+		Duty Cycle   & 70\%            & 50\%            & 30\%            & $D$                            \\ \hline
+		LED ON Time  & 1400 ms         & 1000 ms         & 600 ms          & $t_{on} = D \cdot t_{Cycle}$   \\ \hline
+		LED OFF Time & 600 ms          & 1000 ms         & 1400 ms         & $t_{off} = t_{Cycle} - t_{on}$ \\ \hline
+	\end{tabular}
 \end{table}
 
 \subsection{b) Implementation:}
+
+Der Duty Cycle wird in drei Stufen variiert, während die Zykluszeit konstant bleibt. Für jede Stufe werden Ein- und Ausschaltzeit berechnet und die LED 15-mal geblinkt.
+
+\begin{lstlisting}
+  /* USER CODE BEGIN 2 */
+  const float CycleTime = 2000;
+  const float dutySteps[3] = {0.7, 0.5, 0.3};
+  /* USER CODE END 2 */
+
+  uint32_t OnTime;
+  uint32_t OffTime;
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+    for(int i = 0; i < 3; i++)
+    {
+      float duty = dutySteps[i];
+
+      OnTime = (uint32_t)(CycleTime * duty);
+      OffTime = (uint32_t)(CycleTime - OnTime);
+
+      // BlinkLED
+      for(int i=0;i<15;i++)
+      {
+        GPIOJ->ODR |= SEGDP_Pin;
+        HAL_Delay(OnTime);
+        GPIOJ->ODR &= ~SEGDP_Pin;
+        HAL_Delay(OffTime);
+      }
+    }
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+\end{lstlisting}
+
 \subsection{c) Discussion:}
+
+Die Struktur mit einem Array für die Duty Cycles ist übersichtlich und leicht erweiterbar. Die Trennung von Berechnung und Ausführung vereinfacht die Wiederverwendung.
