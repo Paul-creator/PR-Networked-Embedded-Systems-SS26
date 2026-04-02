@@ -35,7 +35,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "string.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,23 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+// Sensor device addresses
+#define SENSOR_WRITE_ADDR   0x3C
+#define SENSOR_READ_ADDR    0x3D
+
+// Control registers
+#define SENSOR_CTRL_REG1    0x20
+#define SENSOR_CTRL_REG2    0x21
+#define SENSOR_CTRL_REG3    0x22
+#define SENSOR_CTRL_REG4    0x23
+
+// Output registers for raw magnetic field data
+#define SENSOR_OUT_X_L      0x28
+#define SENSOR_OUT_X_H      0x29
+#define SENSOR_OUT_Y_L      0x2A
+#define SENSOR_OUT_Y_H      0x2B
+#define SENSOR_OUT_Z_L      0x2C
+#define SENSOR_OUT_Z_H      0x2D
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,12 +80,71 @@
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void getMagField(uint16_t addressAxisL, uint16_t addressAxisH, uint16_t divFactor, char axis);
+void checkForImpossibleVal(int32_t magneticField_mGauss);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void getMagField(uint16_t addressAxisL, uint16_t addressAxisH, uint16_t divFactor, char axis)
+{
+    uint8_t outLsb = 0;
+    uint8_t outMsb = 0;
+    int16_t rawOutput = 0;
+    int32_t magneticField_mGauss = 0;
+    int32_t intPart = 0;
+    int32_t fracPart = 0;
+    char msg[40] = {'\0'};
 
+    HAL_I2C_Mem_Read(&hi2c2, SENSOR_READ_ADDR, addressAxisL,
+                     I2C_MEMADD_SIZE_8BIT, &outLsb, 1, HAL_MAX_DELAY);
+    HAL_I2C_Mem_Read(&hi2c2, SENSOR_READ_ADDR, addressAxisH,
+                     I2C_MEMADD_SIZE_8BIT, &outMsb, 1, HAL_MAX_DELAY);
+
+    rawOutput = (int16_t)(((uint16_t)outMsb << 8) | outLsb);
+
+    magneticField_mGauss = ((int32_t)rawOutput * 1000) / divFactor;
+    checkForImpossibleVal(magneticField_mGauss);
+    intPart = magneticField_mGauss / 1000;
+    fracPart = magneticField_mGauss % 1000;
+
+    if (fracPart < 0)
+    {
+        fracPart = -fracPart;
+    }
+
+    if (fracPart < 0)
+        fracPart = -fracPart;
+
+    if ((magneticField_mGauss < 0) && (intPart == 0))
+    {
+        if (axis == 'Z')
+            sprintf(msg, "%c: -0.%03d Gauss\r\n", axis, (int)fracPart);
+        else
+            sprintf(msg, "%c: -0.%03d Gauss, ", axis, (int)fracPart);
+    }
+    else
+    {
+        if (axis == 'Z')
+            sprintf(msg, "%c: %d.%03d Gauss\r\n", axis, (int)intPart, (int)fracPart);
+        else
+            sprintf(msg, "%c: %d.%03d Gauss, ", axis, (int)intPart, (int)fracPart);
+    }
+
+    HAL_UART_Transmit(&huart4, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+
+    HAL_Delay(200);
+}
+void checkForImpossibleVal(int32_t magneticField_mGauss)
+{
+    if (magneticField_mGauss > 12000 || magneticField_mGauss < -12000)
+    {
+        char msg[64] = {'\0'};
+        sprintf(msg, "Error magnetic field value > 12 Gauss\r\n");
+        HAL_UART_Transmit(&huart4, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+        HAL_Delay(200);
+    }
+}
 /* USER CODE END 0 */
 
 /**
@@ -144,7 +221,21 @@ int main(void)
   MX_TIM17_Init();
   MX_USB_OTG_FS_USB_Init();
   /* USER CODE BEGIN 2 */
+  uint8_t xyConfig = 0xFC;
+  uint8_t zConfig = 0x0C;
+  uint8_t scaleConfig = 0x40;
+  uint8_t modeConfig = 0x00;
+  uint16_t gain = 2281;
 
+  HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG1,
+                    I2C_MEMADD_SIZE_8BIT, &xyConfig, 1, HAL_MAX_DELAY);
+  HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG4,
+                    I2C_MEMADD_SIZE_8BIT, &zConfig, 1, HAL_MAX_DELAY);
+
+  HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG2,
+                    I2C_MEMADD_SIZE_8BIT, &scaleConfig, 1, HAL_MAX_DELAY);
+  HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG3,
+                    I2C_MEMADD_SIZE_8BIT, &modeConfig, 1, HAL_MAX_DELAY);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -152,7 +243,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    getMagField(SENSOR_OUT_X_L,SENSOR_OUT_X_H,gain,'X');
+    getMagField(SENSOR_OUT_Y_L,SENSOR_OUT_Y_H,gain,'Y');
+    getMagField(SENSOR_OUT_Z_L,SENSOR_OUT_Z_H,gain,'Z');
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
