@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * @file           : main.c
- * @brief          : Main program body
- ******************************************************************************
- * @attention
- *
- * <h2><center>&copy; Copyright (c) 2026 STMicroelectronics.
- * All rights reserved.</center></h2>
- *
- * This software component is licensed by ST under BSD 3-Clause license,
- * the "License"; You may not use this file except in compliance with the
- * License. You may obtain a copy of the License at:
- *                        opensource.org/licenses/BSD-3-Clause
- *
- ******************************************************************************
- */
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
+  *
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -143,17 +143,8 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM17_Init();
   MX_USB_OTG_FS_USB_Init();
-
   /* USER CODE BEGIN 2 */
-  const float tCycleLow = 1000;
-  const float tCycleMid = 500;
-  const float tCycleHigh = 200;
-  const float dutyCycle = 0.666; 
-  
-  uint32_t OnTime;
-  uint32_t OffTime; 
 
-  float cycles[3] = {tCycleLow, tCycleMid, tCycleHigh};
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -161,21 +152,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    for(int level = 0; level < 3; level++)
-    {
-      float currentCycle = cycles[level];
 
-      OnTime = (uint32_t)(currentCycle * dutyCycle);
-      OffTime = (uint32_t)(currentCycle - OnTime);
-
-      for(int cnt = 0; cnt < 15; cnt++)
-      {
-        GPIOJ->ODR |= SEGDP_Pin;
-        HAL_Delay(OnTime);
-        GPIOJ->ODR &= ~SEGDP_Pin;
-        HAL_Delay(OffTime);
-      }
-    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
