@@ -18,7 +18,7 @@ Die Zykluszeit wird in Schritten von \(100\,\mathrm{ms}\) zwischen \(100\,\mathr
 	t_{on} = \frac{t_{Cycle}}{2}, \qquad t_{off} = t_{Cycle} - t_{on}.
 \]
 
-Die Tastererkennung erfolgt über den Vergleich von altem und aktuellem Zustand. Im finalen Code wird auf die Flanke von \texttt{SET} nach \texttt{RESET} reagiert, also auf das \textbf{Drücken} des Tasters.
+Die Tastererkennung erfolgt über den Vergleich von altem und aktuellem Zustand. Im finalen Code wird auf die Flanke von \texttt{RESET} nach \texttt{SET} reagiert, also auf das \textbf{Loslassen} des Tasters.
 
 \begin{lstlisting}
 /* USER CODE BEGIN PV */
