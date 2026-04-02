@@ -24,21 +24,130 @@
 		8           & 1             & 1             & 1             & 1             & 1             & 1             & 1             \\ \hline
 		9           & 1             & 1             & 1             & 1             & 0             & 1             & 1             \\ \hline
 	\end{tabularx}
-	\caption{Segmentbelegung für die Darstellung der Ziffern 0 bis 9}
+	\caption{Segment assignment for the digits 0 to 9}
 	\label{tab:taskE_segments}
 \end{table}
 
-\textbf{Assignment of the values to the 7-segment display:}
+A value of \texttt{1} switches the segment on, and \texttt{0} switches it off.
+The current step is calculated from the cycle time by
+\[
+	\texttt{step}=\frac{\texttt{cycleTime}-\texttt{minCycleTime}}{\texttt{stepSize}}.
+\]
+Thus, the cycle times from $100\,\text{ms}$ to $1900\,\text{ms}$ are mapped to the values 0 to 9.
+The segment patterns are stored in a lookup table and written to Port J by bit manipulation.
 
-Each decimal digit is represented by a unique combination of the seven segments A to G. A value of \texttt{1} means that the corresponding segment is turned on, while a value of \texttt{0} means that it remains off. Since the display is connected to pins PJ0 to PJ6, the segment pattern can be assigned directly to the GPIO output bits.
+\subsection{b) Implementation:}
 
-A suitable approach is to store the segment combinations for all digits from 0 to 9 in an array. Each array entry contains the bit pattern for one digit. The program then selects the corresponding pattern depending on the current step and writes it to the output data register of Port J using bit manipulation.
+The digits are stored as bit patterns in an array.
+The function \texttt{DisplayStep()} calculates the current step and writes the corresponding value to the 7-segment display.
+Button~1 decreases the cycle time, Button~2 increases it. The decimal point is toggled for visual feedback.
 
-This method avoids setting every segment individually for each number and improves reusability. It also satisfies the requirement that the display functionality should be implemented as a reusable method.
+\begin{lstlisting}
+/* USER CODE BEGIN PV */
+uint32_t cycleTime = 100;
+const uint32_t minCycleTime = 100;
+const uint32_t maxCycleTime = 1900;
+const uint32_t stepSize = 200;
 
-\subsection{c) Implementation:}
-\subsection{b) Results:}
-\textit{Add pictures of the 7-segment display showing different step size}
+GPIO_PinState lastBtn1State;
+GPIO_PinState lastBtn2State;
+
+const uint8_t sevenSegDigits[10] =
+{
+  0x3F, /* 0 */
+  0x06, /* 1 */
+  0x5B, /* 2 */
+  0x4F, /* 3 */
+  0x66, /* 4 */
+  0x6D, /* 5 */
+  0x7D, /* 6 */
+  0x07, /* 7 */
+  0x7F, /* 8 */
+  0x6F  /* 9 */
+};
+/* USER CODE END PV */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN PFP */
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState);
+/* USER CODE END PFP */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN 0 */
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState)
+{
+  uint32_t step = (currentCycleTime - minCycleTime) / stepSize;
+  uint32_t odrValue = GPIOJ->ODR & ~0xFFU;
+
+  odrValue |= sevenSegDigits[step];
+
+  if (dpState == GPIO_PIN_SET)
+  {
+    odrValue |= (1U << 7);
+  }
+
+  GPIOJ->ODR = odrValue;
+}
+/* USER CODE END 0 */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN 2 */
+lastBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+lastBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+/* USER CODE END 2 */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+  GPIO_PinState currentBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+  GPIO_PinState currentBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+  uint32_t onTime = cycleTime / 2;
+  uint32_t offTime = cycleTime - onTime;
+
+  if ((lastBtn1State == GPIO_PIN_SET) && (currentBtn1State == GPIO_PIN_RESET))
+  {
+    if (cycleTime > minCycleTime)
+    {
+      cycleTime -= stepSize;
+    }
+  }
+
+  if ((lastBtn2State == GPIO_PIN_SET) && (currentBtn2State == GPIO_PIN_RESET))
+  {
+    if (cycleTime < maxCycleTime)
+    {
+      cycleTime += stepSize;
+    }
+  }
+
+  lastBtn1State = currentBtn1State;
+  lastBtn2State = currentBtn2State;
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  DisplayStep(cycleTime, GPIO_PIN_RESET);
+  HAL_Delay(offTime);
+
+  DisplayStep(cycleTime, GPIO_PIN_SET);
+  HAL_Delay(onTime);
+}
+/* USER CODE END 3 */
+\end{lstlisting}
+
+\subsection{c) Results:}
+The correct step from 0 to 9 is shown on the 7-segment display.
+Pressing BTN1 decreases the step, pressing BTN2 increases it.
+The decimal point blinks, so changes can be seen immediately.
+
+\textit{Add pictures of the 7-segment display showing different step sizes.}
 
 \subsection{d) Discussion:}
-
+The lookup table makes the code simple and reusable.
+Bit manipulation allows all segments to be set efficiently at once.
+A limitation is the use of polling and \texttt{HAL\_Delay()}, since the processor is blocked during the delay.

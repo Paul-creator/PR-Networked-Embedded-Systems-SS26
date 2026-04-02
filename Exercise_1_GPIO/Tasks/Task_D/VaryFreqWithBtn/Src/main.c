@@ -55,25 +55,52 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t cycleTime = 500;
+uint32_t cycleTime = 100;
 const uint32_t minCycleTime = 100;
-const uint32_t maxCycleTime = 1000;
-const uint32_t stepSize = 100;
+const uint32_t maxCycleTime = 1900;
+const uint32_t stepSize = 200;
 
 GPIO_PinState lastBtn1State;
 GPIO_PinState lastBtn2State;
+
+const uint8_t sevenSegDigits[10] =
+{
+  0x3F, /* 0 */
+  0x06, /* 1 */
+  0x5B, /* 2 */
+  0x4F, /* 3 */
+  0x66, /* 4 */
+  0x6D, /* 5 */
+  0x7D, /* 6 */
+  0x07, /* 7 */
+  0x7F, /* 8 */
+  0x6F  /* 9 */
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState)
+{
+  uint32_t step = (currentCycleTime - minCycleTime) / stepSize;
+  uint32_t odrValue = GPIOJ->ODR & ~0xFFU;
 
+  odrValue |= sevenSegDigits[step];
+
+  if (dpState == GPIO_PIN_SET)
+  {
+    odrValue |= (1U << 7);
+  }
+
+  GPIOJ->ODR = odrValue;
+}
 /* USER CODE END 0 */
 
 /**
@@ -184,10 +211,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    GPIOJ->ODR |= SEGDP_Pin;
-    HAL_Delay(onTime);
-    GPIOJ->ODR &= ~SEGDP_Pin;
+    DisplayStep(cycleTime, GPIO_PIN_RESET);
     HAL_Delay(offTime);
+
+    DisplayStep(cycleTime, GPIO_PIN_SET);
+    HAL_Delay(onTime);
   }
   /* USER CODE END 3 */
 }
