@@ -2,16 +2,86 @@
 
 \section{Theory Questions}
 
-\textit{Answer the questions below in your own words, add diagrams, formulas, and calculations if necessary}
-
 \subsection{a) What is calibration and why do the sensors need that? How are calibration values used to calculate the measurement result? Visualize the relation between calibration curve and measured values (simplified, e.g., linear curves).}
+
+Calibration is the process of determining the relationship between the raw sensor output (e.g., voltage, digital value) and the true physical quantity (e.g., temperature, pressure). Sensors need calibration because manufacturing tolerances, aging, and environmental influences cause deviations from the ideal behavior.
+
+Calibration provides parameters (e.g., offset and gain) that are used to correct the measured raw value:
+\[
+	y = a \cdot x + b
+\]
+where \(x\) is the raw sensor value, \(y\) the calibrated physical value, \(a\) the gain (slope), and \(b\) the offset.
+
+Graphically, the calibration curve represents the mapping from measured values to true values:
+
+\begin{center}
+	\begin{tikzpicture}
+		\draw[->] (0,0) -- (4,0) node[right] {raw value \(x\)};
+		\draw[->] (0,0) -- (0,4) node[above] {physical value \(y\)};
+		\draw[thick] (0.5,0.5) -- (3.5,3.2) node[right] {calibration curve};
+	\end{tikzpicture}
+\end{center}
+
+The calibrated result is obtained by inserting the measured raw value into the calibration function.
 
 \vspace{2.5cm}
 
 \subsection{b) Describe I2C. Where do we use it? How does communication via I2C work?}
 
+I2C (Inter-Integrated Circuit) is a synchronous serial communication protocol used for short-distance communication between integrated circuits on the same board.
+
+It is commonly used to connect sensors, EEPROMs, ADCs, and microcontrollers.
+
+I2C uses two lines:
+\[
+	\text{SDA (data)}, \quad \text{SCL (clock)}
+\]
+
+Communication is based on a master-slave principle:
+\begin{itemize}
+	\item The master generates the clock and initiates communication.
+	\item Each slave has a unique address.
+\end{itemize}
+
+Transmission sequence:
+\begin{enumerate}
+	\item Start condition (SDA goes low while SCL is high)
+	\item Address + read/write bit
+	\item Acknowledge (ACK) from slave
+	\item Data transfer in bytes (8 bits + ACK)
+	\item Stop condition (SDA goes high while SCL is high)
+\end{enumerate}
+
+Multiple devices can share the same bus.
+
 \vspace{2cm}
 
 \subsection{c) Describe UART. What does the abbreviation mean? How does communication via UART work?}
 
-\vspace{2cm}
+UART stands for Universal Asynchronous Receiver Transmitter. It is an asynchronous serial communication protocol.
+
+It is used for communication between microcontrollers, PCs, and peripheral devices (e.g., via USB-to-serial adapters).
+
+UART uses two main lines:
+\[
+	\text{TX (transmit)}, \quad \text{RX (receive)}
+\]
+
+Communication does not use a clock signal; instead, both devices must agree on a baud rate.
+
+A data frame consists of:
+\begin{itemize}
+	\item 1 start bit (low)
+	\item 5--9 data bits
+	\item optional parity bit
+	\item 1--2 stop bits (high)
+\end{itemize}
+
+Transmission process:
+\begin{enumerate}
+	\item Line is idle (high)
+	\item Start bit signals beginning
+	\item Data bits are sent sequentially (LSB first)
+	\item Optional parity bit for error detection
+	\item Stop bit(s) indicate end of frame
+\end{enumerate}
