@@ -3,7 +3,91 @@
 \section{Task D: Vary the Blinking Frequency with Push Buttons}
 
 \subsection{a) Implementation:}
-\textit{Describe your solution...}
+Für diese Aufgabe mussten die beiden Taster (PJ12 und PJ13) in STM32CubeMX zunächst von GPIO Output auf \textbf{Input with Pull-Up} umgestellt und der Code anschließend neu generiert werden. Erst danach konnten die Tasterzustände mit \texttt{HAL\_GPIO\_ReadPin()} korrekt eingelesen werden.
+
+Auf dem Board sind die beiden Taster als \texttt{PB3} und \texttt{PB4} beschriftet. Im Programm werden sie über die Signale \texttt{BTN1} und \texttt{BTN2} verwendet, wobei in CubeMX beispielsweise \texttt{PJ13 = BTN2} konfiguriert wurde.
+
+Da Pull-Up verwendet wird, gilt:
+\[
+	\texttt{GPIO\_PIN\_SET} = \text{Taster nicht gedrückt}, \qquad
+	\texttt{GPIO\_PIN\_RESET} = \text{Taster gedrückt}.
+\]
+
+Die Zykluszeit wird in Schritten von \(100\,\mathrm{ms}\) zwischen \(100\,\mathrm{ms}\) und \(1000\,\mathrm{ms}\) verändert. BTN1 verkleinert die Zykluszeit, BTN2 vergrößert sie. Die LED wird mit konstantem Duty Cycle von \(50\%\) betrieben, daher gilt:
+\[
+	t_{on} = \frac{t_{Cycle}}{2}, \qquad t_{off} = t_{Cycle} - t_{on}.
+\]
+
+Die Tastererkennung erfolgt über den Vergleich von altem und aktuellem Zustand. Im finalen Code wird auf die Flanke von \texttt{SET} nach \texttt{RESET} reagiert, also auf das \textbf{Drücken} des Tasters.
+
+\begin{lstlisting}
+/* USER CODE BEGIN PV */
+uint32_t cycleTime = 500;
+const uint32_t minCycleTime = 100;
+const uint32_t maxCycleTime = 1000;
+const uint32_t stepSize = 100;
+
+GPIO_PinState lastBtn1State;
+GPIO_PinState lastBtn2State;
+/* USER CODE END PV */
+
+/* USER CODE BEGIN 2 */
+lastBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+lastBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+/* USER CODE END 2 */
+
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+  GPIO_PinState currentBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+  GPIO_PinState currentBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+  uint32_t onTime = cycleTime / 2;
+  uint32_t offTime = cycleTime - onTime;
+
+  if ((lastBtn1State == GPIO_PIN_SET) && (currentBtn1State == GPIO_PIN_RESET))
+  {
+    if (cycleTime > minCycleTime)
+    {
+      cycleTime -= stepSize;
+    }
+  }
+
+  if ((lastBtn2State == GPIO_PIN_SET) && (currentBtn2State == GPIO_PIN_RESET))
+  {
+    if (cycleTime < maxCycleTime)
+    {
+      cycleTime += stepSize;
+    }
+  }
+
+  lastBtn1State = currentBtn1State;
+  lastBtn2State = currentBtn2State;
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  GPIOJ->ODR |= SEGDP_Pin;
+  HAL_Delay(onTime);
+  GPIOJ->ODR &= ~SEGDP_Pin;
+  HAL_Delay(offTime);
+}
+/* USER CODE END 3 */
+\end{lstlisting}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\textwidth]{task_d_cubemx.png}
+	\caption{CubeMX-Konfiguration des Tasters als GPIO Input Pull-Up, z.\,B. \texttt{PJ13 = BTN2}}
+	\label{fig:taskd_cubemx}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\textwidth]{task_d_board.jpg}
+	\caption{Board mit LED sowie den Tastern \texttt{PB3} und \texttt{PB4}}
+	\label{fig:taskd_board}
+\end{figure}
 
 \subsection{b) Discussion:}
-\textit{Describe your experiences. Does your solution have any limitations? How would an ideal solution behave in your opinion?}
+Wesentlich war hier die korrekte GPIO-Konfiguration in CubeMX. Ohne Umstellung auf Input Pull-Up konnten die Taster nicht sinnvoll eingelesen werden.
+
+Die Lösung ist einfach und funktioniert zuverlässig mit festen Grenzen für die Zykluszeit. Eine Einschränkung ist, dass durch \texttt{HAL\_Delay()} die Reaktion auf Tastendrücke nur zwischen zwei Blinkphasen erfolgt.

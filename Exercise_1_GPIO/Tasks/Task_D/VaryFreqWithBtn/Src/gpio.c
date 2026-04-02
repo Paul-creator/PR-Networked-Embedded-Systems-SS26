@@ -81,9 +81,9 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_14|BTN1_Pin|BTN2_Pin|SEGA_Pin
-                          |SEGDP_Pin|SEGG_Pin|SEGB_Pin|SEGF_Pin
-                          |SEGC_Pin|SEGD_Pin|SEGE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_14|SEGA_Pin|SEGDP_Pin|SEGG_Pin
+                          |SEGB_Pin|SEGF_Pin|SEGC_Pin|SEGD_Pin
+                          |SEGE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
@@ -135,13 +135,19 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PJ14 PJPin PJPin PJPin
                            PJPin PJPin PJPin PJPin
-                           PJPin PJPin PJPin */
-  GPIO_InitStruct.Pin = GPIO_PIN_14|BTN1_Pin|BTN2_Pin|SEGA_Pin
-                          |SEGDP_Pin|SEGG_Pin|SEGB_Pin|SEGF_Pin
-                          |SEGC_Pin|SEGD_Pin|SEGE_Pin;
+                           PJPin */
+  GPIO_InitStruct.Pin = GPIO_PIN_14|SEGA_Pin|SEGDP_Pin|SEGG_Pin
+                          |SEGB_Pin|SEGF_Pin|SEGC_Pin|SEGD_Pin
+                          |SEGE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOJ, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PJPin PJPin */
+  GPIO_InitStruct.Pin = BTN1_Pin|BTN2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOJ, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA10 PA12 PA11 */
