@@ -4,29 +4,97 @@
 
 \subsection{a) Calculations:}
 
-\textit{Describe the necessary startup sequence. Which registers are involved and what does each command do?}
+A minimal startup sequence for the LIS3MDL consists of: checking the device ID, selecting the full-scale range, enabling continuous conversion mode, and configuring the performance/output data rate. The relevant registers are listed below.
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{3cm}|>{\raggedright\arraybackslash}p{2.4cm}|>{\raggedright\arraybackslash}p{4.2cm}|}
 		\hline
-		\textbf{Parameter Description} & \textbf{Value} & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
-		\blankrow & & & \\ \hline
+		\textbf{Parameter Description}                                            & \textbf{Value}                        & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
+		Read device identity (\texttt{WHO\_AM\_I}), expected response             & \texttt{0x3D}                         & --                     & \texttt{0x0F}             \\ \hline
+		Configure X/Y performance mode and output data rate (\texttt{CTRL\_REG1}) & e.g.\ \texttt{0x70}                   & --                     & \texttt{0x20}             \\ \hline
+		Configure full-scale range (\texttt{CTRL\_REG2})                          & e.g.\ \texttt{0x00} for $\pm 4$~Gauss & Gauss                  & \texttt{0x21}             \\ \hline
+		Enable continuous-conversion mode (\texttt{CTRL\_REG3})                   & \texttt{0x00}                         & --                     & \texttt{0x22}             \\ \hline
+		Configure Z-axis performance mode (\texttt{CTRL\_REG4})                   & e.g.\ \texttt{0x0C}                   & --                     & \texttt{0x23}             \\ \hline
+		Optional: block data update / endianness (\texttt{CTRL\_REG5})            & depending on implementation           & --                     & \texttt{0x24}             \\ \hline
 	\end{tabularx}
 \end{table}
 
-\textit{Registers for measurement:}
+Meaning of the most important commands:
+\begin{itemize}
+	\item \texttt{WHO\_AM\_I} verifies that the correct sensor is connected.
+	\item \texttt{CTRL\_REG1} sets output data rate and X/Y operating mode.
+	\item \texttt{CTRL\_REG2} selects the measurement range (\(\pm 4\), \(\pm 8\), \(\pm 12\), \(\pm 16\)~Gauss).
+	\item \texttt{CTRL\_REG3} selects the operating mode; \texttt{0x00} means continuous measurement.
+	\item \texttt{CTRL\_REG4} sets the Z-axis operating mode.
+\end{itemize}
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{0.85\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
 		\hline
-		\textbf{Description} & \textbf{Register Address} \\ \hline
-		\blankrow & \\ \hline
+		\textbf{Description}                                            & \textbf{Register Address} \\ \hline
+		X-axis low byte (\texttt{OUT\_X\_L})                            & \texttt{0x28}             \\ \hline
+		X-axis high byte (\texttt{OUT\_X\_H})                           & \texttt{0x29}             \\ \hline
+		Y-axis low byte (\texttt{OUT\_Y\_L})                            & \texttt{0x2A}             \\ \hline
+		Y-axis high byte (\texttt{OUT\_Y\_H})                           & \texttt{0x2B}             \\ \hline
+		Z-axis low byte (\texttt{OUT\_Z\_L})                            & \texttt{0x2C}             \\ \hline
+		Z-axis high byte (\texttt{OUT\_Z\_H})                           & \texttt{0x2D}             \\ \hline
+		Status register (\texttt{STATUS\_REG}, optional before readout) & \texttt{0x27}             \\ \hline
 	\end{tabularx}
 \end{table}
 
 \textit{How is the magnetic value of each axis calculated from the involved registers? Explain!}
+
+Each axis value is stored in two 8-bit registers: one low byte and one high byte. These two bytes are combined into one signed 16-bit value in two's complement representation:
+\[
+	M_{x,\mathrm{raw}} = (\texttt{OUT\_X\_H} \ll 8) \; | \; \texttt{OUT\_X\_L}
+\]
+\[
+	M_{y,\mathrm{raw}} = (\texttt{OUT\_Y\_H} \ll 8) \; | \; \texttt{OUT\_Y\_L}
+\]
+\[
+	M_{z,\mathrm{raw}} = (\texttt{OUT\_Z\_H} \ll 8) \; | \; \texttt{OUT\_Z\_L}
+\]
+
+After combining, the result must be interpreted as a signed 16-bit integer:
+\[
+	M_{\mathrm{raw}} \in [-32768,\,32767]
+\]
+
+The conversion into physical magnetic flux density depends on the configured full-scale range. For the LIS3MDL, the sensitivities are:
+
+\[
+	\begin{array}{c|c}
+		\text{Range}        & \text{Sensitivity}    \\ \hline
+		\pm 4~\text{Gauss}  & 6842~\text{LSB/Gauss} \\
+		\pm 8~\text{Gauss}  & 3421~\text{LSB/Gauss} \\
+		\pm 12~\text{Gauss} & 2281~\text{LSB/Gauss} \\
+		\pm 16~\text{Gauss} & 1711~\text{LSB/Gauss}
+	\end{array}
+\]
+
+Thus, for a selected sensitivity \(S\), the magnetic field value is:
+\[
+	M_{\mathrm{Gauss}} = \frac{M_{\mathrm{raw}}}{S}
+\]
+
+Example for the default range \(\pm 4\)~Gauss:
+\[
+	M_{x,\mathrm{Gauss}} = \frac{M_{x,\mathrm{raw}}}{6842}, \qquad
+	M_{y,\mathrm{Gauss}} = \frac{M_{y,\mathrm{raw}}}{6842}, \qquad
+	M_{z,\mathrm{Gauss}} = \frac{M_{z,\mathrm{raw}}}{6842}
+\]
+
+Therefore, the program must:
+\begin{enumerate}
+	\item read two bytes per axis via I\textsuperscript{2}C,
+	\item combine them to one signed 16-bit value,
+	\item divide by the sensitivity corresponding to the configured full-scale range,
+	\item print the result via UART.
+\end{enumerate}
+
+\vspace{1.5cm}
 
 \vspace{1.5cm}
 
