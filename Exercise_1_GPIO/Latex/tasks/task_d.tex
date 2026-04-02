@@ -44,7 +44,7 @@ while (1)
   uint32_t onTime = cycleTime / 2;
   uint32_t offTime = cycleTime - onTime;
 
-  if ((lastBtn1State == GPIO_PIN_SET) && (currentBtn1State == GPIO_PIN_RESET))
+  if ((lastBtn1State == GPIO_PIN_RESET) && (currentBtn1State == GPIO_PIN_SET))
   {
     if (cycleTime > minCycleTime)
     {
@@ -52,7 +52,7 @@ while (1)
     }
   }
 
-  if ((lastBtn2State == GPIO_PIN_SET) && (currentBtn2State == GPIO_PIN_RESET))
+  if ((lastBtn2State == GPIO_PIN_RESET) && (currentBtn2State == GPIO_PIN_SET))
   {
     if (cycleTime < maxCycleTime)
     {
