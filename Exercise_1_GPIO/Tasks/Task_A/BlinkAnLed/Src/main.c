@@ -145,8 +145,8 @@ int main(void)
   MX_USB_OTG_FS_USB_Init();
 
   /* USER CODE BEGIN 2 */
-  const uint32_t onTime = 1000;
-  const uint32_t offTime = 2000;
+  const uint32_t onTime = 2000;
+  const uint32_t offTime = 1000;
   /* USER CODE END 2 */
 
   /* Infinite loop */
