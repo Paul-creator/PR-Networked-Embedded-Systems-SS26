@@ -13,20 +13,28 @@
 	\begin{tabularx}{\textwidth}{|c|*{7}{>{\centering\arraybackslash}X|}}
 		\hline
 		\textbf{No} & \textbf{SEGA} & \textbf{SEGB} & \textbf{SEGC} & \textbf{SEGD} & \textbf{SEGE} & \textbf{SEGF} & \textbf{SEGG} \\ \hline
-		0           &               &               &               &               &               &               &               \\ \hline
-		1           &               &               &               &               &               &               &               \\ \hline
-		2           &               &               &               &               &               &               &               \\ \hline
-		3           &               &               &               &               &               &               &               \\ \hline
-		4           &               &               &               &               &               &               &               \\ \hline
-		5           &               &               &               &               &               &               &               \\ \hline
-		6           &               &               &               &               &               &               &               \\ \hline
-		7           &               &               &               &               &               &               &               \\ \hline
-		8           &               &               &               &               &               &               &               \\ \hline
-		9           &               &               &               &               &               &               &               \\ \hline
+		0           & 1             & 1             & 1             & 1             & 1             & 1             & 0             \\ \hline
+		1           & 0             & 1             & 1             & 0             & 0             & 0             & 0             \\ \hline
+		2           & 1             & 1             & 0             & 1             & 1             & 0             & 1             \\ \hline
+		3           & 1             & 1             & 1             & 1             & 0             & 0             & 1             \\ \hline
+		4           & 0             & 1             & 1             & 0             & 0             & 1             & 1             \\ \hline
+		5           & 1             & 0             & 1             & 1             & 0             & 1             & 1             \\ \hline
+		6           & 1             & 0             & 1             & 1             & 1             & 1             & 1             \\ \hline
+		7           & 1             & 1             & 1             & 0             & 0             & 0             & 0             \\ \hline
+		8           & 1             & 1             & 1             & 1             & 1             & 1             & 1             \\ \hline
+		9           & 1             & 1             & 1             & 1             & 0             & 1             & 1             \\ \hline
 	\end{tabularx}
+	\caption{Segmentbelegung für die Darstellung der Ziffern 0 bis 9}
+	\label{tab:taskE_segments}
 \end{table}
 
-\textit{Describe how you can assign these values to the 7-segment display.}
+\textbf{Assignment of the values to the 7-segment display:}
+
+Each decimal digit is represented by a unique combination of the seven segments A to G. A value of \texttt{1} means that the corresponding segment is turned on, while a value of \texttt{0} means that it remains off. Since the display is connected to pins PJ0 to PJ6, the segment pattern can be assigned directly to the GPIO output bits.
+
+A suitable approach is to store the segment combinations for all digits from 0 to 9 in an array. Each array entry contains the bit pattern for one digit. The program then selects the corresponding pattern depending on the current step and writes it to the output data register of Port J using bit manipulation.
+
+This method avoids setting every segment individually for each number and improves reusability. It also satisfies the requirement that the display functionality should be implemented as a reusable method.
 
 \subsection{c) Implementation:}
 \subsection{b) Results:}
