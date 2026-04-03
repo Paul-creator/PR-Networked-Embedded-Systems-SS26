@@ -95,7 +95,6 @@ UART4 and I2C2 were configured in STM32CubeMX. UART4 is used for the serial outp
 
 The code was inserted into STM32CubeMX user blocks. Only the relevant parts are shown below.
 
-\paragraph{Additional include files (\texttt{USER CODE BEGIN Includes})}
 \begin{lstlisting}[language=C,caption={Additional include files in USER CODE BEGIN Includes}]
 /* USER CODE BEGIN Includes */
 #include "string.h"
@@ -103,7 +102,6 @@ The code was inserted into STM32CubeMX user blocks. Only the relevant parts are 
 /* USER CODE END Includes */
 \end{lstlisting}
 
-\paragraph{Register definitions (\texttt{USER CODE BEGIN PD})}
 \begin{lstlisting}[language=C,caption={Register and address macros in USER CODE BEGIN PD}]
 /* USER CODE BEGIN PD */
 // Sensor device addresses
@@ -126,7 +124,6 @@ The code was inserted into STM32CubeMX user blocks. Only the relevant parts are 
 /* USER CODE END PD */
 \end{lstlisting}
 
-\paragraph{Function prototypes (\texttt{USER CODE BEGIN PFP})}
 \begin{lstlisting}[language=C,caption={Function prototypes in USER CODE BEGIN PFP}]
 /* USER CODE BEGIN PFP */
 void getMagField(uint16_t addressAxisL, uint16_t addressAxisH,
@@ -135,7 +132,6 @@ void checkForImpossibleVal(int32_t magneticField_mGauss);
 /* USER CODE END PFP */
 \end{lstlisting}
 
-\paragraph{Measurement and error handling (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={Measurement and basic error handling in USER CODE BEGIN 0}]
 /* USER CODE BEGIN 0 */
 void getMagField(uint16_t addressAxisL, uint16_t addressAxisH, uint16_t divFactor, char axis)
@@ -173,7 +169,6 @@ void checkForImpossibleVal(int32_t magneticField_mGauss)
 /* USER CODE END 0 */
 \end{lstlisting}
 
-\paragraph{Sensor startup sequence (\texttt{USER CODE BEGIN 2})}
 \begin{lstlisting}[language=C,caption={Sensor initialization in USER CODE BEGIN 2}]
 /* USER CODE BEGIN 2 */
 uint8_t xyConfig = 0xFC;
@@ -193,7 +188,6 @@ HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG3,
 /* USER CODE END 2 */
 \end{lstlisting}
 
-\paragraph{Main loop}
 \begin{lstlisting}[language=C,caption={Three-axis readout in the while-loop}]
 /* USER CODE END WHILE */
 getMagField(SENSOR_OUT_X_L, SENSOR_OUT_X_H, gain, 'X');

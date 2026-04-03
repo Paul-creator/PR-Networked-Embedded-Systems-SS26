@@ -73,7 +73,6 @@ Finally, the value is limited to
 
 The implementation is divided into reusable helper functions for UART output, I\textsuperscript{2}C register access, initialization, and humidity conversion. Only the relevant blocks are shown.
 
-\paragraph{Additional include files (\texttt{USER CODE BEGIN Includes})}
 \begin{lstlisting}[language=C,caption={Additional include files in USER CODE BEGIN Includes}]
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
@@ -82,7 +81,6 @@ The implementation is divided into reusable helper functions for UART output, I\
 /* USER CODE END Includes */
 \end{lstlisting}
 
-\paragraph{Register definitions (\texttt{USER CODE BEGIN PD})}
 \begin{lstlisting}[language=C,caption={Register and address definitions in USER CODE BEGIN PD}]
 /* USER CODE BEGIN PD */
 #define HTS221_ADDR                 (0x5F << 1)
@@ -98,7 +96,6 @@ The implementation is divided into reusable helper functions for UART output, I\
 /* USER CODE END PD */
 \end{lstlisting}
 
-\paragraph{Sensor initialization (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={HTS221 initialization with error handling in USER CODE BEGIN 0}]
 static HAL_StatusTypeDef HTS221_Init(void)
 {
@@ -121,7 +118,6 @@ static HAL_StatusTypeDef HTS221_Init(void)
 }
 \end{lstlisting}
 
-\paragraph{Humidity conversion (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={Humidity readout and conversion in USER CODE BEGIN 0}]
 static HAL_StatusTypeDef HTS221_ReadHumidity_x10(int32_t *rh_x10)
 {
@@ -156,7 +152,6 @@ static HAL_StatusTypeDef HTS221_ReadHumidity_x10(int32_t *rh_x10)
 }
 \end{lstlisting}
 
-\paragraph{Startup and main loop}
 \begin{lstlisting}[language=C,caption={Sensor startup and measurement loop}]
 /* USER CODE BEGIN 2 */
 if (HTS221_Init() != HAL_OK)

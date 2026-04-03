@@ -70,7 +70,6 @@ In the implementation, tenths of a degree are used:
 
 Compared to Tasks B and C, the LPS22HH does not require interpolation with calibration constants. The new code therefore consists mainly of sensor initialization, multi-byte readout, and formatted UART output.
 
-\paragraph{Register definitions (\texttt{USER CODE BEGIN PD})}
 \begin{lstlisting}[language=C,caption={LPS22HH register definitions}]
 /* USER CODE BEGIN PD */
 #define LPS22HH_ADDR            (0x5D << 1)
@@ -80,7 +79,6 @@ Compared to Tasks B and C, the LPS22HH does not require interpolation with calib
 /* USER CODE END PD */
 \end{lstlisting}
 
-\paragraph{Function prototypes (\texttt{USER CODE BEGIN PFP})}
 \begin{lstlisting}[language=C,caption={Function prototypes for LPS22HH access}]
 /* USER CODE BEGIN PFP */
 static HAL_StatusTypeDef LPS22HH_Init(void);
@@ -91,7 +89,6 @@ static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10);
 /* USER CODE END PFP */
 \end{lstlisting}
 
-\paragraph{Initialization and measurement functions (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={Initialization and readout functions for Task D}]
 static HAL_StatusTypeDef LPS22HH_Init(void)
 {
@@ -130,7 +127,6 @@ static HAL_StatusTypeDef LPS22HH_ReadTemp_x10(int32_t *temp)
 }
 \end{lstlisting}
 
-\paragraph{Formatted UART output and main loop}
 \begin{lstlisting}[language=C,caption={UART output and measurement loop}]
 static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10)
 {

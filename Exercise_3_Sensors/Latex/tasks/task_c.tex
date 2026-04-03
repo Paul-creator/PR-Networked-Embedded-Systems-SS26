@@ -63,7 +63,6 @@ In the code the temperature is scaled by 10 to print one decimal place:
 
 The basic HTS221 infrastructure from Task B is reused unchanged: device address, generic I\textsuperscript{2}C helper functions, \texttt{HTS221\_CombineInt16()}, and \texttt{HTS221\_Init()}. Therefore, only the temperature-specific additions are shown here.
 
-\paragraph{Additional register definitions (\texttt{USER CODE BEGIN PD})}
 \begin{lstlisting}[language=C,caption={Additional temperature register definitions}]
 /* Temperature */
 #define HTS221_TEMP_OUT_L           0x2A
@@ -74,13 +73,11 @@ The basic HTS221 infrastructure from Task B is reused unchanged: device address,
 #define HTS221_T1_OUT_L             0x3E
 \end{lstlisting}
 
-\paragraph{Additional prototypes (\texttt{USER CODE BEGIN PFP})}
 \begin{lstlisting}[language=C,caption={New prototypes for temperature output and conversion}]
 static void UART4_PrintTemp_x10(int32_t temp_x10);
 static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10);
 \end{lstlisting}
 
-\paragraph{UART output function (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={UART output function for temperature values}]
 static void UART4_PrintTemp_x10(int32_t temp_x10)
 {
@@ -91,7 +88,6 @@ static void UART4_PrintTemp_x10(int32_t temp_x10)
 }
 \end{lstlisting}
 
-\paragraph{Temperature conversion (\texttt{USER CODE BEGIN 0})}
 \begin{lstlisting}[language=C,caption={Temperature readout and conversion by linear interpolation}]
 static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10)
 {
@@ -123,7 +119,6 @@ static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10)
 }
 \end{lstlisting}
 
-\paragraph{Main loop}
 \begin{lstlisting}[language=C,caption={Temperature measurement loop in main()}]
 while (1)
 {
