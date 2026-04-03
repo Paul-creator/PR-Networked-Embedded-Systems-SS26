@@ -45,6 +45,26 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define HTS221_ADDR                 (0x5F << 1)
+#define HTS221_AUTOINC              0x80
+
+#define HTS221_CTRL_REG1            0x20
+#define HTS221_WHO_AM_I             0x0F
+
+/* Humidity */
+#define HTS221_HUMIDITY_OUT_L       0x28
+#define HTS221_H0_rH_x2             0x30
+#define HTS221_H1_rH_x2             0x31
+#define HTS221_H0_T0_OUT_L          0x36
+#define HTS221_H1_T0_OUT_L          0x3A
+
+/* Temperature */
+#define HTS221_TEMP_OUT_L           0x2A
+#define HTS221_T0_degC_x8           0x32
+#define HTS221_T1_degC_x8           0x33
+#define HTS221_T1_T0_msb            0x35
+#define HTS221_T0_OUT_L             0x3C
+#define HTS221_T1_OUT_L             0x3E
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,12 +82,171 @@
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
+/* UART */
+static void UART4_Print(const char *text);
+static void UART4_PrintHumidity_x10(int32_t rh_x10);
+static void UART4_PrintTemp_x10(int32_t temp_x10);
 
+/* I2C */
+static HAL_StatusTypeDef HTS221_WriteReg(uint8_t reg, uint8_t value);
+static HAL_StatusTypeDef HTS221_ReadReg(uint8_t reg, uint8_t *value);
+static HAL_StatusTypeDef HTS221_ReadRegs(uint8_t startReg, uint8_t *buffer, uint16_t len);
+
+/* Helper */
+static int16_t HTS221_CombineInt16(uint8_t lowByte, uint8_t highByte);
+
+/* Sensor */
+static HAL_StatusTypeDef HTS221_Init(void);
+static HAL_StatusTypeDef HTS221_ReadHumidity_x10(int32_t *rh_x10);
+static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// UART
+static void UART4_Print(const char *text)
+{
+    HAL_UART_Transmit(&huart4, (uint8_t *)text, strlen(text), HAL_MAX_DELAY);
+}
 
+static void UART4_PrintHumidity_x10(int32_t rh_x10)
+{
+    char msg[32];
+    snprintf(msg, sizeof(msg), "%ld.%ld %%RH\r\n",
+             (long)(rh_x10 / 10), (long)(rh_x10 % 10));
+    UART4_Print(msg);
+}
+
+static void UART4_PrintTemp_x10(int32_t temp_x10)
+{
+    char msg[32];
+    snprintf(msg, sizeof(msg), "%ld.%ld °C\r\n",
+             (long)(temp_x10 / 10), (long)(temp_x10 % 10));
+    UART4_Print(msg);
+}
+
+// I2C 
+static HAL_StatusTypeDef HTS221_WriteReg(uint8_t reg, uint8_t value)
+{
+    return HAL_I2C_Mem_Write(&hi2c2, HTS221_ADDR,
+                            reg, I2C_MEMADD_SIZE_8BIT,
+                            &value, 1, HAL_MAX_DELAY);
+}
+
+static HAL_StatusTypeDef HTS221_ReadReg(uint8_t reg, uint8_t *value)
+{
+    return HAL_I2C_Mem_Read(&hi2c2, HTS221_ADDR,
+                           reg, I2C_MEMADD_SIZE_8BIT,
+                           value, 1, HAL_MAX_DELAY);
+}
+
+static HAL_StatusTypeDef HTS221_ReadRegs(uint8_t startReg, uint8_t *buffer, uint16_t len)
+{
+    return HAL_I2C_Mem_Read(&hi2c2, HTS221_ADDR,
+                           (startReg | HTS221_AUTOINC),
+                           I2C_MEMADD_SIZE_8BIT,
+                           buffer, len, HAL_MAX_DELAY);
+}
+
+// Helper
+
+static int16_t HTS221_CombineInt16(uint8_t lowByte, uint8_t highByte)
+{
+    return (int16_t)(((uint16_t)highByte << 8) | lowByte);
+}
+
+// Init
+
+static HAL_StatusTypeDef HTS221_Init(void)
+{
+    uint8_t whoami;
+
+    if (HAL_I2C_IsDeviceReady(&hi2c2, HTS221_ADDR, 3, 100) != HAL_OK)
+        return HAL_ERROR;
+
+    if (HTS221_ReadReg(HTS221_WHO_AM_I, &whoami) != HAL_OK)
+        return HAL_ERROR;
+
+    if (whoami != 0xBC)
+        return HAL_ERROR;
+
+    if (HTS221_WriteReg(HTS221_CTRL_REG1, 0x81) != HAL_OK)
+        return HAL_ERROR;
+
+    HAL_Delay(100);
+    return HAL_OK;
+}
+
+// Humidity
+
+static HAL_StatusTypeDef HTS221_ReadHumidity_x10(int32_t *rh_x10)
+{
+    uint8_t buffer[2];
+    uint8_t h0, h1;
+
+    int16_t H0_OUT, H1_OUT, H_OUT;
+    int32_t result;
+
+    if (HTS221_ReadReg(HTS221_H0_rH_x2, &h0) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_H1_rH_x2, &h1) != HAL_OK) return HAL_ERROR;
+
+    if (HTS221_ReadRegs(HTS221_H0_T0_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    H0_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_H1_T0_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    H1_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_HUMIDITY_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    H_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    result = (h0 * 5) +
+        ((h1 - h0) * 5 * (H_OUT - H0_OUT)) / (H1_OUT - H0_OUT);
+
+    if (result < 0) result = 0;
+    if (result > 1000) result = 1000;
+
+    *rh_x10 = result;
+    return HAL_OK;
+}
+
+// Temperature
+
+static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10)
+{
+    uint8_t buffer[2];
+    uint8_t t0_lsb, t1_lsb, msb;
+
+    int16_t T0_x8, T1_x8;
+    int16_t T0, T1;
+
+    int16_t T0_OUT, T1_OUT, T_OUT;
+    int32_t result;
+
+    if (HTS221_ReadReg(HTS221_T0_degC_x8, &t0_lsb) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_T1_degC_x8, &t1_lsb) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_T1_T0_msb, &msb) != HAL_OK) return HAL_ERROR;
+
+    T0_x8 = ((msb & 0x03) << 8) | t0_lsb;
+    T1_x8 = ((msb & 0x0C) << 6) | t1_lsb;
+
+    T0 = T0_x8 >> 3;
+    T1 = T1_x8 >> 3;
+
+    if (HTS221_ReadRegs(HTS221_T0_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T0_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_T1_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T1_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_TEMP_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    result = (T0 * 10) +
+        ((T1 - T0) * 10 * (T_OUT - T0_OUT)) / (T1_OUT - T0_OUT);
+
+    *temp_x10 = result;
+    return HAL_OK;
+}
 /* USER CODE END 0 */
 
 /**
@@ -151,6 +330,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    int32_t temp_x10;
+
+    if (HTS221_ReadTemperature_x10(&temp_x10) == HAL_OK)
+    {
+        UART4_PrintTemp_x10(temp_x10);
+    }
+    else
+    {
+        UART4_Print("ERROR\r\n");
+    }
+
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

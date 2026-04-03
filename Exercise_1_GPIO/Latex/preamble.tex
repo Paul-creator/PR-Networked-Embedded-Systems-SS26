@@ -43,7 +43,7 @@
 \lstdefinestyle{modernc}{
 	language=C,
 	backgroundcolor=\color{codebg},
-	basicstyle=\ttfamily\small,
+	basicstyle=\ttfamily\scriptsize,
 	keywordstyle=\color{codeblue}\bfseries,
 	commentstyle=\color{codegreen}\itshape,
 	stringstyle=\color{codered},
@@ -60,6 +60,8 @@
 	rulecolor=\color{black},
 	captionpos=b,
 	keepspaces=true,
-	columns=flexible
+	columns=flexible,
+	inputencoding=utf8,
+	literate={°}{{\textdegree}}1
 }
 \lstset{style=modernc}

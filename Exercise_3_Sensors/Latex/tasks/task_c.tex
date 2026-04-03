@@ -4,31 +4,264 @@
 
 \subsection{a) Calculations:}
 
-\textit{Describe how the temperature is calculated (incl formula) and describe each parameter! Which registers are involved? Which parameters are constants? Which parameters change? Where do you find the values that are needed for your calculation?}
+The startup is identical to Task B. The HTS221 is activated by writing
+\[
+	\texttt{CTRL\_REG1} = \texttt{0x81}
+\]
+to register \texttt{0x20}. This enables the sensor and sets the output data rate to \(1\,\mathrm{Hz}\).
+
+The temperature is calculated by linear interpolation between two factory calibration points stored in the sensor memory.
+
+The measured raw temperature output is
+\[
+	T_{\mathrm{OUT}}.
+\]
+
+The calibration values are
+\[
+	T_0,\quad T_1,\quad T0_{\mathrm{OUT}},\quad T1_{\mathrm{OUT}}.
+\]
+
+The conversion formula is
+\[
+	T = T_0 + \frac{T_1 - T_0}{T1_{\mathrm{OUT}} - T0_{\mathrm{OUT}}}\cdot\left(T_{\mathrm{OUT}} - T0_{\mathrm{OUT}}\right).
+\]
+
+Equivalently, with the slope
+\[
+	k = \frac{T_1 - T_0}{T1_{\mathrm{OUT}} - T0_{\mathrm{OUT}}},
+\]
+the formula can be written as
+\[
+	T = k\cdot\left(T_{\mathrm{OUT}} - T0_{\mathrm{OUT}}\right) + T_0.
+\]
+
+The values \(T_0\) and \(T_1\) are stored in the device as 10-bit calibration constants in the form \(T0\_\mathrm{degC\_x8}\) and \(T1\_\mathrm{degC\_x8}\). Therefore, the 10-bit values must first be reconstructed and then divided by 8:
+\[
+	T_0 = \frac{T0\_\mathrm{degC\_x8}}{8}, \qquad
+	T_1 = \frac{T1\_\mathrm{degC\_x8}}{8}.
+\]
+
+The lower 8 bits are stored in registers \texttt{0x32} and \texttt{0x33}. The upper 2 bits are stored in register \texttt{0x35}:
+\[
+	T0\_\mathrm{degC\_x8} = \bigl((\texttt{T1/T0\_MSB} \;\&\; \texttt{0x03}) \ll 8\bigr)\;|\;\texttt{T0\_degC\_x8\_LSB},
+\]
+\[
+	T1\_\mathrm{degC\_x8} = \bigl((\texttt{T1/T0\_MSB} \;\&\; \texttt{0x0C}) \ll 6\bigr)\;|\;\texttt{T1\_degC\_x8\_LSB}.
+\]
+
+The raw temperature output is read from two registers:
+\[
+	T_{\mathrm{OUT}} = (\texttt{TEMP\_OUT\_H} \ll 8)\;|\;\texttt{TEMP\_OUT\_L}.
+\]
+
+The calibration outputs are also 16-bit signed values:
+\[
+	T0_{\mathrm{OUT}} = (\texttt{T0\_OUT\_H} \ll 8)\;|\;\texttt{T0\_OUT\_L},
+\]
+\[
+	T1_{\mathrm{OUT}} = (\texttt{T1\_OUT\_H} \ll 8)\;|\;\texttt{T1\_OUT\_L}.
+\]
+
+Thus:
+\begin{itemize}
+	\item \(T_{\mathrm{OUT}}\) changes continuously during measurement,
+	\item \(T_0\), \(T_1\), \(T0_{\mathrm{OUT}}\), and \(T1_{\mathrm{OUT}}\) are calibration constants read from the sensor memory.
+\end{itemize}
+
+All required values are found in the HTS221 datasheet and application note in the calibration register section.
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.7cm}|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{3cm}|}
 		\hline
-		\textbf{Parameter} & \textbf{Description} & \textbf{Value or source} & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
-		\blankrow & & & & \\ \hline
+		\textbf{Parameter}        & \textbf{Description}                                          & \textbf{Value or source}                           & \textbf{Unit (if any)}       & \textbf{Register Address}    \\ \hline
+		\texttt{CTRL\_REG1}       & Startup configuration register                                & set to \texttt{0x81}                               & --                           & \texttt{0x20}                \\ \hline
+		\texttt{T0\_degC\_x8} LSB & Lower 8 bits of first temperature calibration value           & sensor calibration constant                        & --                           & \texttt{0x32}                \\ \hline
+		\texttt{T1\_degC\_x8} LSB & Lower 8 bits of second temperature calibration value          & sensor calibration constant                        & --                           & \texttt{0x33}                \\ \hline
+		\texttt{T1/T0\_MSB}       & Upper bits of \texttt{T0\_degC\_x8} and \texttt{T1\_degC\_x8} & sensor calibration constant                        & --                           & \texttt{0x35}                \\ \hline
+		\(T0\_\mathrm{degC\_x8}\) & 10-bit first temperature calibration value                    & reconstructed from \texttt{0x32} and \texttt{0x35} & \(^\circ\mathrm{C}\times 8\) & \texttt{0x32}, \texttt{0x35} \\ \hline
+		\(T1\_\mathrm{degC\_x8}\) & 10-bit second temperature calibration value                   & reconstructed from \texttt{0x33} and \texttt{0x35} & \(^\circ\mathrm{C}\times 8\) & \texttt{0x33}, \texttt{0x35} \\ \hline
+		\(T_0\)                   & First temperature calibration value                           & \(T0\_\mathrm{degC\_x8}/8\)                        & \(^\circ\mathrm{C}\)         & derived                      \\ \hline
+		\(T_1\)                   & Second temperature calibration value                          & \(T1\_\mathrm{degC\_x8}/8\)                        & \(^\circ\mathrm{C}\)         & derived                      \\ \hline
+		\texttt{T0\_OUT\_L}       & Low byte of first calibration output                          & sensor calibration constant                        & --                           & \texttt{0x3C}                \\ \hline
+		\texttt{T0\_OUT\_H}       & High byte of first calibration output                         & sensor calibration constant                        & --                           & \texttt{0x3D}                \\ \hline
+		\(T0_{\mathrm{OUT}}\)     & First raw calibration output                                  & \((\texttt{0x3D} \ll 8)\;|\;\texttt{0x3C}\)        & LSB                          & \texttt{0x3C}, \texttt{0x3D} \\ \hline
+		\texttt{T1\_OUT\_L}       & Low byte of second calibration output                         & sensor calibration constant                        & --                           & \texttt{0x3E}                \\ \hline
+		\texttt{T1\_OUT\_H}       & High byte of second calibration output                        & sensor calibration constant                        & --                           & \texttt{0x3F}                \\ \hline
+		\(T1_{\mathrm{OUT}}\)     & Second raw calibration output                                 & \((\texttt{0x3F} \ll 8)\;|\;\texttt{0x3E}\)        & LSB                          & \texttt{0x3E}, \texttt{0x3F} \\ \hline
+		\texttt{TEMP\_OUT\_L}     & Low byte of measured temperature output                       & current sensor value                               & --                           & \texttt{0x2A}                \\ \hline
+		\texttt{TEMP\_OUT\_H}     & High byte of measured temperature output                      & current sensor value                               & --                           & \texttt{0x2B}                \\ \hline
+		\(T_{\mathrm{OUT}}\)      & Current raw temperature output                                & \((\texttt{0x2B} \ll 8)\;|\;\texttt{0x2A}\)        & LSB                          & \texttt{0x2A}, \texttt{0x2B} \\ \hline
+		\(T\)                     & Calculated temperature                                        & computed from interpolation formula                & \(^\circ\mathrm{C}\)         & --                           \\ \hline
 	\end{tabularx}
 \end{table}
 
+In an integer-based implementation, the temperature is often scaled by a factor of 10 in order to print one decimal place without floating-point arithmetic:
+\[
+	T_{x10} = 10 \cdot T.
+\]
+
+Then the implemented interpolation becomes
+\[
+	T_{x10} = 10T_0 + \frac{(10T_1 - 10T_0)\cdot(T_{\mathrm{OUT}} - T0_{\mathrm{OUT}})}{T1_{\mathrm{OUT}} - T0_{\mathrm{OUT}}}.
+\]
+
+Therefore, the program must:
+\begin{enumerate}
+	\item read the calibration values \(T_0\) and \(T_1\) from \texttt{0x32}, \texttt{0x33}, and \texttt{0x35},
+	\item read the calibration outputs \(T0_{\mathrm{OUT}}\) and \(T1_{\mathrm{OUT}}\) from \texttt{0x3C--0x3F},
+	\item read the current raw temperature output \(T_{\mathrm{OUT}}\) from \texttt{0x2A--0x2B},
+	\item compute the temperature by linear interpolation,
+	\item print the result via UART.
+\end{enumerate}
+
 \subsection{b) Implementation:}
 
-\textit{Describe your solution. Add all relevant code snippets into a listing or as screenshots and describe their purpose. Remember to use generic methods with well-defined parameters!!}
+The basic HTS221 infrastructure from Task B was reused unchanged: device address, generic I\textsuperscript{2}C read/write functions, \texttt{HTS221\_CombineInt16()}, and the initialization routine with \texttt{CTRL\_REG1 = 0x81}. To avoid repetition, only the temperature-specific additions are shown here.
 
-\vspace{3cm}
+\paragraph{Additional temperature-related register definitions (\texttt{USER CODE BEGIN PD})}
+Compared to Task B, only the temperature registers were added.
+
+\begin{lstlisting}[language=C,caption={Additional temperature register definitions}]
+/* Temperature */
+#define HTS221_TEMP_OUT_L           0x2A
+#define HTS221_T0_degC_x8           0x32
+#define HTS221_T1_degC_x8           0x33
+#define HTS221_T1_T0_msb            0x35
+#define HTS221_T0_OUT_L             0x3C
+#define HTS221_T1_OUT_L             0x3E
+\end{lstlisting}
+
+\paragraph{Additional function prototypes (\texttt{USER CODE BEGIN PFP})}
+For Task C, one new UART output function and one new temperature conversion function were added.
+
+\begin{lstlisting}[language=C,caption={New prototypes for temperature output and conversion}]
+static void UART4_PrintTemp_x10(int32_t temp_x10);
+static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10);
+\end{lstlisting}
+
+\paragraph{UART output for temperature (\texttt{USER CODE BEGIN 0})}
+The measured temperature is printed with one decimal place and the unit \(^\circ\mathrm{C}\).
+
+\begin{lstlisting}[language=C,caption={UART output function for temperature values}]
+static void UART4_PrintTemp_x10(int32_t temp_x10)
+{
+    char msg[32];
+    snprintf(msg, sizeof(msg), "%ld.%ld °C\r\n",
+             (long)(temp_x10 / 10), (long)(temp_x10 % 10));
+    UART4_Print(msg);
+}
+\end{lstlisting}
+
+\paragraph{Temperature readout and conversion (\texttt{USER CODE BEGIN 0})}
+This function reads the temperature calibration constants, reconstructs the 10-bit calibration values \(T0\_\mathrm{degC\_x8}\) and \(T1\_\mathrm{degC\_x8}\), reads the raw calibration outputs and the current temperature output, and calculates the temperature by linear interpolation. The result is returned as \texttt{temp\_x10}, i.e.\ temperature scaled by a factor of 10.
+
+\begin{lstlisting}[language=C,caption={Temperature readout and conversion by linear interpolation}]
+static HAL_StatusTypeDef HTS221_ReadTemperature_x10(int32_t *temp_x10)
+{
+    uint8_t buffer[2];
+    uint8_t t0_lsb, t1_lsb, msb;
+
+    int16_t T0_x8, T1_x8;
+    int16_t T0, T1;
+
+    int16_t T0_OUT, T1_OUT, T_OUT;
+    int32_t result;
+
+    if (HTS221_ReadReg(HTS221_T0_degC_x8, &t0_lsb) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_T1_degC_x8, &t1_lsb) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_T1_T0_msb, &msb) != HAL_OK) return HAL_ERROR;
+
+    T0_x8 = ((msb & 0x03) << 8) | t0_lsb;
+    T1_x8 = ((msb & 0x0C) << 6) | t1_lsb;
+
+    T0 = T0_x8 >> 3;
+    T1 = T1_x8 >> 3;
+
+    if (HTS221_ReadRegs(HTS221_T0_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T0_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_T1_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T1_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    if (HTS221_ReadRegs(HTS221_TEMP_OUT_L, buffer, 2) != HAL_OK) return HAL_ERROR;
+    T_OUT = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    result = (T0 * 10) +
+        ((T1 - T0) * 10 * (T_OUT - T0_OUT)) / (T1_OUT - T0_OUT);
+
+    *temp_x10 = result;
+    return HAL_OK;
+}
+\end{lstlisting}
+
+\paragraph{Main loop}
+In the main loop, one temperature value is measured every second and sent via UART4. In case of an I\textsuperscript{2}C read error, the program prints \texttt{ERROR}.
+
+\begin{lstlisting}[language=C,caption={Temperature measurement loop in main()}]
+while (1)
+{
+    int32_t temp_x10;
+
+    if (HTS221_ReadTemperature_x10(&temp_x10) == HAL_OK)
+    {
+        UART4_PrintTemp_x10(temp_x10);
+    }
+    else
+    {
+        UART4_Print("ERROR\r\n");
+    }
+
+    HAL_Delay(1000);
+}
+\end{lstlisting}
+
+The program flow is therefore:
+\begin{enumerate}
+	\item initialize the HTS221 as in Task B,
+	\item read the temperature calibration constants,
+	\item read the raw temperature output,
+	\item calculate the temperature using integer arithmetic,
+	\item print one value per line via UART4.
+\end{enumerate}
+
+A small inconsistency in the shown source code is that the call to \texttt{HTS221\_Init()} is not visible in \texttt{USER CODE BEGIN 2}. Since the startup is required exactly as in Task B, this initialization call must still be present in the final working version.
 
 \subsection{c) Results:}
 
-\textit{Add a screenshot of the UART output.}
+The measured temperature values were transmitted successfully via UART4 and displayed on the serial monitor. Each value is printed in a new line.
 
-\vspace{4cm}
+\begin{lstlisting}[caption={UART output of the temperature measurement}]
+30.6 °C
+30.7 °C
+30.6 °C
+30.5 °C
+30.6 °C
+30.8 °C
+\end{lstlisting}
+
+The measured values are plausible and vary only slightly over time, which is expected for a nearly constant ambient temperature.
 
 \subsection{d) Discussion:}
 
-\textit{Describe your experiences (e.g., design decisions, problems, lesson learned). Which part of the code will be reusable?}
+The implementation of Task C could be derived almost directly from Task B. The structure of the program remained the same: generic I\textsuperscript{2}C helper functions are reused, the sensor is initialized once, and the physical quantity is obtained by linear interpolation from calibration data stored in the sensor.
 
-\vspace{2cm}
+A useful design decision was to keep the temperature conversion in a separate function \texttt{HTS221\_ReadTemperature\_x10()}. This makes the code easier to test and avoids mixing communication code with conversion logic. Another useful decision was to use integer arithmetic with a scaling factor of 10 instead of floating-point arithmetic. This keeps the implementation simple and efficient on the microcontroller while still allowing one decimal digit in the output.
+
+The most critical part of the implementation was reconstructing the 10-bit calibration values \(T0\_\mathrm{degC\_x8}\) and \(T1\_\mathrm{degC\_x8}\) from different registers. In addition, the correct byte order had to be used for \texttt{T0\_OUT}, \texttt{T1\_OUT}, and \texttt{TEMP\_OUT}. A wrong bit mask or a wrong shift would immediately lead to incorrect temperature values.
+
+Reusable code parts are:
+\begin{itemize}
+	\item the generic UART print function,
+	\item the generic I\textsuperscript{2}C register read/write functions,
+	\item the helper function for combining two bytes into a signed 16-bit value,
+	\item the overall structure of the measurement loop,
+	\item the initialization routine from Task B.
+\end{itemize}
+
+A possible improvement would be to add an explicit check for
+\[
+	T1_{\mathrm{OUT}} - T0_{\mathrm{OUT}} \neq 0
+\]
+before performing the interpolation, analogous to the division-by-zero check in Task B. Another improvement would be to read and store the calibration constants only once during initialization instead of reading them again in every measurement cycle.
