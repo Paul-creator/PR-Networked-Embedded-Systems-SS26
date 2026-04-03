@@ -47,9 +47,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define HTS221_ADDR                 (0x5F << 1)   // 7-bit 0x5F, HAL expects left-shifted address
+#define HTS221_ADDR                 (0x5F << 1)
 #define HTS221_AUTOINC              0x80
 
+#define HTS221_WHO_AM_I             0x0F
 #define HTS221_CTRL_REG1            0x20
 #define HTS221_HUMIDITY_OUT_L       0x28
 #define HTS221_H0_rH_x2             0x30
@@ -96,7 +97,7 @@ static void UART4_PrintHumidity_x10(int32_t rh_x10)
     int32_t integerPart = rh_x10 / 10;
     int32_t decimalPart = rh_x10 % 10;
 
-    snprintf(msg, sizeof(msg), "%ld.%ld %%RH\r\n", (long)integerPart, (long)decimalPart);
+    snprintf(msg, sizeof(msg), "%ld.%ld%% RH\r\n", (long)integerPart, (long)decimalPart);
     UART4_Print(msg);
 }
 
@@ -140,7 +141,28 @@ static int16_t HTS221_CombineInt16(uint8_t lowByte, uint8_t highByte)
 
 static HAL_StatusTypeDef HTS221_Init(void)
 {
+    uint8_t whoami = 0;
     uint8_t check = 0;
+
+    if (HAL_I2C_IsDeviceReady(&hi2c2, HTS221_ADDR, 3, 100) != HAL_OK)
+    {
+        UART4_Print("ERROR: HTS221 not ready on I2C2\r\n");
+        return HAL_ERROR;
+    }
+
+    if (HTS221_ReadReg(HTS221_WHO_AM_I, &whoami) != HAL_OK)
+    {
+        UART4_Print("ERROR: WHO_AM_I read failed\r\n");
+        return HAL_ERROR;
+    }
+
+    if (whoami != 0xBC)
+    {
+        char msg[40];
+        snprintf(msg, sizeof(msg), "ERROR: WHO_AM_I = 0x%02X\r\n", whoami);
+        UART4_Print(msg);
+        return HAL_ERROR;
+    }
 
     if (HTS221_WriteReg(HTS221_CTRL_REG1, 0x81) != HAL_OK)
     {
@@ -156,11 +178,14 @@ static HAL_StatusTypeDef HTS221_Init(void)
 
     if (check != 0x81)
     {
-        UART4_Print("ERROR: CTRL_REG1 wrong value\r\n");
+        char msg[40];
+        snprintf(msg, sizeof(msg), "ERROR: CTRL_REG1 = 0x%02X\r\n", check);
+        UART4_Print(msg);
         return HAL_ERROR;
     }
 
     HAL_Delay(100);
+
     return HAL_OK;
 }
 
@@ -329,7 +354,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   if (HTS221_Init() != HAL_OK)
   {
-    Error_Handler();
+      while (1)
+      {
+          UART4_Print("ERROR\r\n");
+          HAL_Delay(1000);
+      }
   }
   /* USER CODE END 2 */
 
