@@ -45,6 +45,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define LPS22HH_ADDR            (0x5D << 1)
+
+#define LPS22HH_CTRL_REG1       0x10
+
+#define LPS22HH_PRESS_OUT_XL    0x28
+#define LPS22HH_TEMP_OUT_L      0x2B
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,12 +68,100 @@
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+static HAL_StatusTypeDef LPS22HH_Init(void);
+static HAL_StatusTypeDef LPS22HH_ReadPressure_hPa(int32_t *press);
+static HAL_StatusTypeDef LPS22HH_ReadTemp_x10(int32_t *temp);
+static void UART4_Print(const char *text);
+static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// LPS22HH Init
 
+static HAL_StatusTypeDef LPS22HH_Init(void)
+{
+    /* ODR = 1 Hz, enable sensor */
+    if (HAL_I2C_Mem_Write(&hi2c2, LPS22HH_ADDR,
+                         LPS22HH_CTRL_REG1,
+                         I2C_MEMADD_SIZE_8BIT,
+                         (uint8_t[]){0x10}, 1,
+                         HAL_MAX_DELAY) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    HAL_Delay(100);
+    return HAL_OK;
+}
+
+// Pressure
+
+static HAL_StatusTypeDef LPS22HH_ReadPressure_hPa(int32_t *press)
+{
+    uint8_t buffer[3];
+    int32_t raw;
+
+    if (HAL_I2C_Mem_Read(&hi2c2, LPS22HH_ADDR,
+                        (LPS22HH_PRESS_OUT_XL | 0x80),
+                        I2C_MEMADD_SIZE_8BIT,
+                        buffer, 3,
+                        HAL_MAX_DELAY) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    raw = (int32_t)((uint32_t)buffer[2] << 16 |
+                    (uint32_t)buffer[1] << 8  |
+                    buffer[0]);
+
+    /* sensitivity = 4096 LSB/hPa */
+    *press = raw / 4096;
+
+    return HAL_OK;
+}
+
+// Temperature
+
+static HAL_StatusTypeDef LPS22HH_ReadTemp_x10(int32_t *temp)
+{
+    uint8_t buffer[2];
+    int16_t raw;
+
+    if (HAL_I2C_Mem_Read(&hi2c2, LPS22HH_ADDR,
+                        (LPS22HH_TEMP_OUT_L | 0x80),
+                        I2C_MEMADD_SIZE_8BIT,
+                        buffer, 2,
+                        HAL_MAX_DELAY) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    raw = (int16_t)((buffer[1] << 8) | buffer[0]);
+
+    /* sensitivity = 100 LSB/°C */
+    *temp = (raw * 10) / 100;
+
+    return HAL_OK;
+}
+
+// UART Output
+static void UART4_Print(const char *text)
+{
+    HAL_UART_Transmit(&huart4, (uint8_t *)text, strlen(text), HAL_MAX_DELAY);
+}
+static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10)
+{
+    char msg[64];
+
+    snprintf(msg, sizeof(msg),
+             "Pressure: %ld hPa, Temperature: %ld.%ld °C\r\n",
+             (long)press,
+             (long)(temp_x10 / 10),
+             (long)(temp_x10 % 10));
+
+    UART4_Print(msg);
+}
 /* USER CODE END 0 */
 
 /**
@@ -144,13 +238,34 @@ int main(void)
   MX_TIM17_Init();
   MX_USB_OTG_FS_USB_Init();
   /* USER CODE BEGIN 2 */
-
+  if (LPS22HH_Init() != HAL_OK)
+  {
+      while (1)
+      {
+          UART4_Print("LPS22HH INIT ERROR\r\n");
+          HAL_Delay(1000);
+      }
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    int32_t pressure;
+    int32_t temp_x10;
+
+    if (LPS22HH_ReadPressure_hPa(&pressure) == HAL_OK &&
+        LPS22HH_ReadTemp_x10(&temp_x10) == HAL_OK)
+    {
+        UART4_PrintPressureTemp(pressure, temp_x10);
+    }
+    else
+    {
+        UART4_Print("ERROR\r\n");
+    }
+
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
