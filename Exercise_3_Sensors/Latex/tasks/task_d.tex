@@ -4,39 +4,105 @@
 
 \subsection{a) Calculations:}
 
-\textit{For the startup, you have to set the registers CTRL\_REG1 and CTRL\_REG2. Based on the application notes, choose a fitting operation mode and justify your choice}
+For this task, a suitable choice is \emph{continuous mode} with an output data rate of \(1\,\mathrm{Hz}\). The reason is that the values are printed periodically on the serial monitor, therefore continuous mode is simpler than one-shot mode, because no new conversion has to be triggered manually for every sample. In addition, \(1\,\mathrm{Hz}\) is sufficient for slowly changing ambient pressure and temperature.
+
+To avoid inconsistent multi-byte reads, the \texttt{BDU} bit is set to \(1\). Furthermore, \texttt{IF\_ADD\_INC} is enabled so that pressure and temperature registers can be read consecutively with auto-increment.
+
+A suitable startup configuration is therefore:
+\begin{itemize}
+	\item \texttt{CTRL\_REG1 = 0x12}: continuous mode, ODR \(= 1\,\mathrm{Hz}\), BDU enabled, SPI 4-wire default.
+	\item \texttt{CTRL\_REG2 = 0x10}: auto-increment enabled, low-current mode, one-shot disabled.
+\end{itemize}
+
+In bit form:
+\[
+	\texttt{CTRL\_REG1: } 0\;\;001\;\;0\;\;0\;\;1\;\;0 = \texttt{0x12}
+\]
+\[
+	\texttt{CTRL\_REG2: } 0\;\;0\;\;0\;\;1\;\;0\;\;0\;\;0\;\;0 = \texttt{0x10}
+\]
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
 		\hline
-		\textbf{Register} & \textbf{Value} \\ \hline
-		CTRL\_REG1 & \\ \hline
-		CTRL\_REG2 & \\ \hline
+		\textbf{Register}   & \textbf{Value} \\ \hline
+		\texttt{CTRL\_REG1} & \texttt{0x12}  \\ \hline
+		\texttt{CTRL\_REG2} & \texttt{0x10}  \\ \hline
 	\end{tabularx}
 \end{table}
 
-\textit{Describe how the pressure is calculated (formula) and fill in the following table:}
+The pressure is stored as a 24-bit signed value in two's complement representation. The three output registers are concatenated as
+\[
+	P_{\mathrm{raw}} = (\texttt{PRESS\_OUT\_H} \ll 16)\;|\;(\texttt{PRESS\_OUT\_L} \ll 8)\;|\;\texttt{PRESS\_OUT\_XL}.
+\]
+
+The corresponding physical pressure is obtained by dividing by the sensor sensitivity
+\[
+	P_{\mathrm{sens}} = 4096~\mathrm{LSB/hPa}.
+\]
+
+Thus,
+\[
+	P_{\mathrm{hPa}} = \frac{P_{\mathrm{raw}}}{4096}.
+\]
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{2cm}|>{\raggedright\arraybackslash}p{3cm}|}
 		\hline
-		\textbf{Parameter} & \textbf{Description} & \textbf{Value or source} & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
-		\blankrow & & & & \\ \hline
+		\textbf{Parameter}      & \textbf{Description}                                       & \textbf{Value or source}                                               & \textbf{Unit (if any)} & \textbf{Register Address}                   \\ \hline
+		\texttt{PRESS\_OUT\_XL} & Least significant byte of raw pressure output              & current sensor value                                                   & --                     & \texttt{0x28}                               \\ \hline
+		\texttt{PRESS\_OUT\_L}  & Middle byte of raw pressure output                         & current sensor value                                                   & --                     & \texttt{0x29}                               \\ \hline
+		\texttt{PRESS\_OUT\_H}  & Most significant byte of raw pressure output               & current sensor value                                                   & --                     & \texttt{0x2A}                               \\ \hline
+		\(P_{\mathrm{raw}}\)    & 24-bit signed raw pressure value                           & \((\texttt{0x2A} \ll 16)\;|\;(\texttt{0x29} \ll 8)\;|\;\texttt{0x28}\) & LSB                    & \texttt{0x28}, \texttt{0x29}, \texttt{0x2A} \\ \hline
+		\(P_{\mathrm{sens}}\)   & Pressure sensitivity                                       & 4096                                                                   & LSB/hPa                & datasheet constant                          \\ \hline
+		\(P_{\mathrm{hPa}}\)    & Calculated pressure                                        & \(P_{\mathrm{raw}} / 4096\)                                            & hPa                    & --                                          \\ \hline
+		\texttt{STATUS}         & Optional status register for new pressure/temperature data & current sensor value                                                   & --                     & \texttt{0x27}                               \\ \hline
 	\end{tabularx}
 \end{table}
 
-\textit{Describe how the temperature is calculated (formula) and fill in the following table:}
+The temperature is stored as a 16-bit signed value in two's complement representation:
+\[
+	T_{\mathrm{raw}} = (\texttt{TEMP\_OUT\_H} \ll 8)\;|\;\texttt{TEMP\_OUT\_L}.
+\]
+
+The corresponding physical temperature is obtained by dividing by the temperature sensitivity
+\[
+	T_{\mathrm{sens}} = 100~\mathrm{LSB/^{\circ}C}.
+\]
+
+Thus,
+\[
+	T_{^\circ\mathrm{C}} = \frac{T_{\mathrm{raw}}}{100}.
+\]
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{2cm}|>{\raggedright\arraybackslash}p{3cm}|}
 		\hline
-		\textbf{Parameter} & \textbf{Description} & \textbf{Value or Source} & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
-		\blankrow & & & & \\ \hline
+		\textbf{Parameter}       & \textbf{Description}                                       & \textbf{Value or Source}                    & \textbf{Unit (if any)}   & \textbf{Register Address}    \\ \hline
+		\texttt{TEMP\_OUT\_L}    & Least significant byte of raw temperature output           & current sensor value                        & --                       & \texttt{0x2B}                \\ \hline
+		\texttt{TEMP\_OUT\_H}    & Most significant byte of raw temperature output            & current sensor value                        & --                       & \texttt{0x2C}                \\ \hline
+		\(T_{\mathrm{raw}}\)     & 16-bit signed raw temperature value                        & \((\texttt{0x2C} \ll 8)\;|\;\texttt{0x2B}\) & LSB                      & \texttt{0x2B}, \texttt{0x2C} \\ \hline
+		\(T_{\mathrm{sens}}\)    & Temperature sensitivity                                    & 100                                         & LSB/\(^\circ\mathrm{C}\) & datasheet constant           \\ \hline
+		\(T_{^\circ\mathrm{C}}\) & Calculated temperature                                     & \(T_{\mathrm{raw}} / 100\)                  & \(^\circ\mathrm{C}\)     & --                           \\ \hline
+		\texttt{STATUS}          & Optional status register for new pressure/temperature data & current sensor value                        & --                       & \texttt{0x27}                \\ \hline
 	\end{tabularx}
 \end{table}
+
+Therefore, the program must:
+\begin{enumerate}
+	\item configure \texttt{CTRL\_REG1} and \texttt{CTRL\_REG2},
+	\item optionally check \texttt{STATUS} for new data,
+	\item read three bytes for pressure and two bytes for temperature,
+	\item combine the bytes to signed raw values,
+	\item divide by the fixed sensitivities \(4096~\mathrm{LSB/hPa}\) and \(100~\mathrm{LSB/^{\circ}C}\),
+	\item print the result in the format
+	      \[
+		      \texttt{Pressure: xxxx hPa, Temperature: yyyy \;^\circ C.}
+	      \]
+\end{enumerate}
 
 \subsection{b) Implementation:}
 
