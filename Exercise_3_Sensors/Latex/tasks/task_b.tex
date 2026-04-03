@@ -4,16 +4,112 @@
 
 \subsection{a) Calculations:}
 
-1. \textit{Describe the necessary startup sequence (e.g., set CTRL\_REG1 (20h) to 0x81). What is the default value of CTRL\_REG1?}
+1. The HTS221 must be activated before measurements can be read. For this task, the required startup step is to write
+\[
+	\texttt{CTRL\_REG1} = \texttt{0x81}
+\]
+to register \texttt{0x20} via I\textsuperscript{2}C.
 
-2. \textit{Describe how the relative humidity is calculated (incl formula) and describe each parameter! Which registers are involved? Which parameters are constants? Which parameters change? Where do you find the values that are needed for your calculation?}
+The register \texttt{CTRL\_REG1} has the bit structure
+\[
+	\texttt{PD \;\; 0 \;\; 0 \;\; 0 \;\; 0 \;\; BDU \;\; ODR1 \;\; ODR0}
+\]
+
+For the value \texttt{0x81}:
+\[
+	1000\,0001_2
+\]
+
+This means:
+\begin{itemize}
+	\item \texttt{PD = 1}: sensor active,
+	\item \texttt{BDU = 0}: output registers are updated continuously,
+	\item \texttt{ODR1:ODR0 = 01}: output data rate \(= 1\,\mathrm{Hz}\).
+\end{itemize}
+
+The default value of \texttt{CTRL\_REG1} is
+\[
+	\texttt{0x00}.
+\]
+Thus, after reset the sensor is powered down and no periodic measurement is active.
+
+For this task, no further startup configuration is strictly required. Optional registers such as \texttt{AV\_CONF}, \texttt{CTRL\_REG2}, and \texttt{CTRL\_REG3} may remain at their default values if no special averaging, one-shot mode, or data-ready pin is used.
+
+\vspace{0.5cm}
+
+2. The relative humidity is calculated by linear interpolation between two calibration points stored in the sensor.
+
+The measured raw humidity output is:
+\[
+	H_{\mathrm{OUT}}
+\]
+
+The calibration values are:
+\[
+	H_0,\quad H_1,\quad H_{0T0\_OUT},\quad H_{1T0\_OUT}
+\]
+
+The conversion formula is
+\[
+	RH = H_0 + \frac{H_1 - H_0}{H_{1T0\_OUT} - H_{0T0\_OUT}} \cdot \left(H_{\mathrm{OUT}} - H_{0T0\_OUT}\right)
+\]
+
+Equivalently, with the slope
+\[
+	k = \frac{H_1 - H_0}{H_{1T0\_OUT} - H_{0T0\_OUT}}
+\]
+the formula can be written as
+\[
+	RH = k \cdot \left(H_{\mathrm{OUT}} - H_{0T0\_OUT}\right) + H_0
+\]
+
+The values \(H_0\) and \(H_1\) are stored in the device as calibration constants. In the registers, they are saved with a factor of 2. Therefore:
+\[
+	H_0 = \frac{\texttt{H0\_rH\_x2}}{2}, \qquad
+	H_1 = \frac{\texttt{H1\_rH\_x2}}{2}
+\]
+
+The raw output value is read from two registers:
+\[
+	H_{\mathrm{OUT}} = (\texttt{HUMIDITY\_OUT\_H} \ll 8)\;|\;\texttt{HUMIDITY\_OUT\_L}
+\]
+
+The calibration outputs are also 16-bit signed values:
+\[
+	H_{0T0\_OUT} = (\texttt{H0\_T0\_OUT\_H} \ll 8)\;|\;\texttt{H0\_T0\_OUT\_L}
+\]
+\[
+	H_{1T0\_OUT} = (\texttt{H1\_T0\_OUT\_H} \ll 8)\;|\;\texttt{H1\_T0\_OUT\_L}
+\]
+
+Thus:
+\begin{itemize}
+	\item \(H_{\mathrm{OUT}}\) changes continuously during measurement,
+	\item \(H_0\), \(H_1\), \(H_{0T0\_OUT}\), and \(H_{1T0\_OUT}\) are calibration constants read once from the sensor memory.
+\end{itemize}
+
+All required values are found in the HTS221 datasheet and application note in the calibration register section.
 
 \begin{table}[H]
 	\centering
 	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.7cm}|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{3cm}|}
 		\hline
-		\textbf{Parameter} & \textbf{Description} & \textbf{Value or source} & \textbf{Unit (if any)} & \textbf{Register address} \\ \hline
-		\blankrow & & & & \\ \hline
+		\textbf{Parameter}        & \textbf{Description}                                      & \textbf{Value or source}                    & \textbf{Unit (if any)} & \textbf{Register address}    \\ \hline
+		\texttt{CTRL\_REG1}       & Startup configuration register                            & set to \texttt{0x81}                        & --                     & \texttt{0x20}                \\ \hline
+		\texttt{H0\_rH\_x2}       & First humidity calibration point, stored multiplied by 2  & sensor calibration constant                 & \% rH $\times 2$       & \texttt{0x30}                \\ \hline
+		\texttt{H1\_rH\_x2}       & Second humidity calibration point, stored multiplied by 2 & sensor calibration constant                 & \% rH $\times 2$       & \texttt{0x31}                \\ \hline
+		\(H_0\)                   & First humidity calibration value                          & \(\texttt{H0\_rH\_x2}/2\)                   & \% rH                  & derived from \texttt{0x30}   \\ \hline
+		\(H_1\)                   & Second humidity calibration value                         & \(\texttt{H1\_rH\_x2}/2\)                   & \% rH                  & derived from \texttt{0x31}   \\ \hline
+		\texttt{H0\_T0\_OUT\_L}   & Low byte of first calibration output                      & sensor calibration constant                 & --                     & \texttt{0x36}                \\ \hline
+		\texttt{H0\_T0\_OUT\_H}   & High byte of first calibration output                     & sensor calibration constant                 & --                     & \texttt{0x37}                \\ \hline
+		\(H_{0T0\_OUT}\)          & First raw calibration output                              & \((\texttt{0x37} \ll 8)\;|\;\texttt{0x36}\) & LSB                    & \texttt{0x36}, \texttt{0x37} \\ \hline
+		\texttt{H1\_T0\_OUT\_L}   & Low byte of second calibration output                     & sensor calibration constant                 & --                     & \texttt{0x3A}                \\ \hline
+		\texttt{H1\_T0\_OUT\_H}   & High byte of second calibration output                    & sensor calibration constant                 & --                     & \texttt{0x3B}                \\ \hline
+		\(H_{1T0\_OUT}\)          & Second raw calibration output                             & \((\texttt{0x3B} \ll 8)\;|\;\texttt{0x3A}\) & LSB                    & \texttt{0x3A}, \texttt{0x3B} \\ \hline
+		\texttt{HUMIDITY\_OUT\_L} & Low byte of measured humidity output                      & current sensor value                        & --                     & \texttt{0x28}                \\ \hline
+		\texttt{HUMIDITY\_OUT\_H} & High byte of measured humidity output                     & current sensor value                        & --                     & \texttt{0x29}                \\ \hline
+		\(H_{\mathrm{OUT}}\)      & Current raw humidity output                               & \((\texttt{0x29} \ll 8)\;|\;\texttt{0x28}\) & LSB                    & \texttt{0x28}, \texttt{0x29} \\ \hline
+		\(RH\)                    & Calculated relative humidity                              & computed from interpolation formula         & \% rH                  & --                           \\ \hline
 	\end{tabularx}
 \end{table}
 
