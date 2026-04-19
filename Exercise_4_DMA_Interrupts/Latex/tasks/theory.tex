@@ -1,0 +1,13 @@
+\section{Theory Questions}
+
+\subsection{What is DMA? How does it work?}
+DMA or Direct Memory Access lets peripherals communicate directly with the RAM. 
+The CPU therefore does not have to copy every byte and only configures the transmission details, like source, destination, length and direction.
+Then the DMA Controller performs the transmission autonomous.
+The CPU is notified when the data transmission is finished or interrupted by an error and can then process the data. UART is an example for a DMA transmission, where the data is written directly into the memory buffer.
+
+
+\subsection{What are the differences between Interrupt and DMA Mode?}
+In interrupt-based data transfer, the peripheral signals an interrupt, prompting the CPU to handle data movement within an interrupt service routine (ISR). 
+This process consumes CPU time and can become inefficient at high data rates. 
+In contrast, DMA allows the CPU to configure the transfer once, after which dedicated hardware manages the data movement in the background. As a result, DMA minimizes CPU involvement and reduces the number of interrupts. These typically only triggering on buffer events or transfer completion, making it ideal for continuous or high-throughput data streams.

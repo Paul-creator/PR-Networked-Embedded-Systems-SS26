@@ -1,0 +1,85 @@
+\section{Task D: Read Magnetic Data from LIS3MDL Sensor in Non-Blocking Mode using DMA}
+
+This Task is a modification of Task C. The only difference is that all non-blocking I2C transfers that previously used interrupt
+mode are now performed using DMA.
+
+\subsection{a) Implementation:}
+
+The STM32CubeMX configuration is based on the setup for Task C. The
+DMA streams have to be activated as seen in Figure \ref{fig:i2c_interrupts}, and the
+D-Cache setting was already prepared in the previous Task.
+The interrupt-driven memory read/write calls are replaced by DMA-based
+calls.
+
+The setup of the I2C is the same as in Task C and can therefore be skipped here.
+
+The methods also change only slightly from the previous task. Where in Task C we used all the Interrupt methods (\texttt{\_IT}) we now use the DMA versions of these methods: (\texttt{\_DMA}) 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Control registers for the Sensor adapted to fit DMA protocolls}, captionpos=b]
+void get_data_DMA(uint8_t *buffer)
+{
+ ...
+}
+
+void sensor_setup_DMA(uint8_t *setup_reg_data)
+{
+ ...
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+ ... 
+}
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+ ...
+}
+\end{lstlisting}
+
+
+\subsection*{Results:}
+\begin{table}[H]
+	\caption{Magnetic field measurements from the LIS3MDL sensor}
+	\label{tab:result_gauss_DMA}
+	\begin{center}
+		\begin{verbatim}
+			---- Opened the serial port COM10 ----
+			X: 0.57 Gauss, Y: -0.71 Gauss, Z: -0.10 Gauss  
+			X: 0.57 Gauss, Y: -0.71 Gauss, Z: -0.10 Gauss  
+			X: 0.46 Gauss, Y: -0.83 Gauss, Z: 0.24 Gauss  
+			X: 0.46 Gauss, Y: -0.83 Gauss, Z: 0.24 Gauss  
+			X: 0.46 Gauss, Y: -0.83 Gauss, Z: 0.22 Gauss  
+			X: 0.46 Gauss, Y: -0.83 Gauss, Z: 0.22 Gauss  
+			X: 0.45 Gauss, Y: -0.83 Gauss, Z: 0.21 Gauss  
+			X: 0.45 Gauss, Y: -0.83 Gauss, Z: 0.21 Gauss  
+			X: 0.45 Gauss, Y: -0.84 Gauss, Z: 0.21 Gauss  
+			X: 0.45 Gauss, Y: -0.84 Gauss, Z: 0.21 Gauss  
+			X: 0.43 Gauss, Y: -0.79 Gauss, Z: 0.18 Gauss  
+			X: 0.43 Gauss, Y: -0.79 Gauss, Z: 0.18 Gauss  
+			X: 0.05 Gauss, Y: -0.31 Gauss, Z: 0.19 Gauss  
+			X: 0.05 Gauss, Y: -0.31 Gauss, Z: 0.19 Gauss  
+			X: -0.01 Gauss, Y: -0.25 Gauss, Z: 0.32 Gauss  
+			X: -0.01 Gauss, Y: -0.25 Gauss, Z: 0.32 Gauss  
+			X: -0.14 Gauss, Y: -0.12 Gauss, Z: 0.41 Gauss  
+			X: -0.14 Gauss, Y: -0.12 Gauss, Z: 0.41 Gauss  
+			X: -0.09 Gauss, Y: -0.06 Gauss, Z: 0.38 Gauss  
+			X: -0.09 Gauss, Y: -0.06 Gauss, Z: 0.38 Gauss  
+			X: -0.19 Gauss, Y: -0.11 Gauss, Z: 0.35 Gauss  
+			X: -0.19 Gauss, Y: -0.11 Gauss, Z: 0.35 Gauss  
+			X: 0.04 Gauss, Y: -0.24 Gauss, Z: 0.26 Gauss  
+			X: 0.04 Gauss, Y: -0.24 Gauss, Z: 0.26 Gauss  
+			X: 0.02 Gauss, Y: -0.30 Gauss, Z: 0.05 Gauss  
+			X: 0.02 Gauss, Y: -0.30 Gauss, Z: 0.05 Gauss  
+			X: -0.07 Gauss, Y: -0.28 Gauss, Z: 0.11 Gauss  
+			X: -0.07 Gauss, Y: -0.28 Gauss, Z: 0.11 Gauss  
+		\end{verbatim}
+	\end{center}
+\end{table}
+\subsection{b) Discussion:}
+
+From an application perspective, Task D behaves identically to Task C. The only difference is that I2C transactions are executed using DMA instead of interrupt-driven transfers. The data movement is offloaded to dedicated hardware, significantly reducing CPU involvement during active transfers.
+
+A clear advantage of DMA is that it reduces CPU overhead compared to interrupt-based transfers. This benefit becomes more pronounced as data throughput increases or when the CPU must simultaneously handle additional time-critical tasks, such as control loops or communication with other peripherals.
+
+Limitations of the current implementation are mainly structural rather than DMA-specific. This is the same as in Task C.

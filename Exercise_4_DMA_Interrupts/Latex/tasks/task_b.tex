@@ -1,0 +1,161 @@
+\section{Task B: Blink an LED using Non-Blocking DMA and Timer Interrupts}\label{tsk:task_b}
+
+In this task, a timer with a period of $\SI{100}{\milli \second}$ toggles a LED. But in contrast to the previous Task \ref{tsk:task_a}, we turn on the counter with UART commands. 
+
+\subsection{a) Implementation:}
+Timer 4 was configured exactly as in Task \ref{tsk:task_a}. The UART protocoll was configured to receive fixed length messages via DMA. This requires UART interrupts and DMA settings in the STM32CubeMX setup. These configurations are pictured in the following figures:
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/taskB_uart.png}
+	\caption{STM32CubeMX configuration of UART interface}
+	\label{fig:UART_config}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{images/taskB_uart_dma.png}
+	\caption{STM32CubeMX configuration of UART DMA with interrupts enabled in the NVIC}
+	\label{fig:UART_DMA_config}
+\end{figure}
+
+To correctly use DMA and the timer Interrupt mode, we need to change the FLASH.Id file. 
+Here we need to add the lines as described in the tutorial on moodle. This needs to be done for all Tasks which use DMA.
+\newpage
+\begin{lstlisting}[language=C, numbers=none, caption={User defined constants}, captionpos=b]
+#define RX_LENGTH 3
+#define ID_ON '1'
+#define ID_OFF '2'
+#define DELAY 100
+
+uint8_t rx_buffer[RX_LENGTH];
+bool timer_running = false;
+\end{lstlisting}
+
+We define constants and global variables for the UART interrupt routine. A 3-byte receive buffer stores incoming frames, with the IDs to start and stop the timer. The boolean flag \texttt{timer\_running} tracks whether the hardware timer is currently active.
+
+\begin{lstlisting}[language=C, numbers=none, caption={Frame validation Method to check if the correct start and stop symbols were received}, captionpos=b]
+static bool validate_frame(uint8_t *err_out, size_t err_size)
+{
+	if (rx_buffer[0] != '#')
+	{
+		snprintf((char *)err_out, err_size,
+		"[ERR] Must start with '#'! Got 0x%02X\r\n", rx_buffer[0]);
+		return false;
+	}
+	
+	if (rx_buffer[2] != '*')
+	{
+		snprintf((char *)err_out, err_size,
+		"[ERR] Must end with '*'! Got 0x%02X\r\n", rx_buffer[2]);
+		return false;
+	}
+	
+	return true;
+}
+\end{lstlisting}
+
+This method checks that a received 3-byte frame starts with \texttt{\#} and ends with \texttt{*}. If either condition fails, an error message is written to the output buffer and the function returns \texttt{false}.
+
+\begin{lstlisting}[language=C, numbers=none, caption={ID handling for starting and stopping the timer}, captionpos=b]
+static void handle_id_on(uint8_t *msg_out, size_t msg_size)
+{
+	if (timer_running)
+	{
+		snprintf((char *)msg_out, msg_size, "[INFO] Timer already RUNNING\r\n");
+		return;
+	}
+	
+	HAL_StatusTypeDef status = HAL_TIM_Base_Start_IT(&htim4);
+	
+	if (status != HAL_OK)
+	snprintf((char *)msg_out, msg_size,
+	"[ERR] Timer start failed! status=%d\r\n", status);
+	else
+	{
+		timer_running = true;
+		snprintf((char *)msg_out, msg_size,
+		"[OK] Timer STARTED! status=%d\r\n", status);
+	}
+}
+
+static void handle_id_off(uint8_t *msg_out, size_t msg_size)
+{
+	if (!timer_running)
+	{
+		snprintf((char *)msg_out, msg_size, "[INFO] Timer already STOPPED\r\n");
+		return;
+	}
+	
+	HAL_StatusTypeDef status = HAL_TIM_Base_Stop_IT(&htim4);
+	
+	if (status != HAL_OK)
+	snprintf((char *)msg_out, msg_size,
+	"[ERR] Timer stop failed! status=%d\r\n", status);
+	else
+	{
+		timer_running = false;
+		snprintf((char *)msg_out, msg_size,
+		"[OK] Timer STOPPED! status=%d\r\n", status);
+	}
+}
+\end{lstlisting}
+
+These two methods handle the start commands for the timer. Each checks the current timer state to avoid redundant operations, then calls the respective interrupt-based timer function. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Methods for getting the data from the sensor and setting up the sensor communication}, captionpos=b]
+void get_data_IT(uint8_t *buffer)
+{
+	char msg[100] = {'\0'};
+	
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Read_IT(&hi2c2, READ_ADDR, OUT_X_L, I2C_MEMADD_SIZE_8BIT, buffer, DATA_REG_SIZE);
+	if (status != HAL_OK)
+	{
+		sprintf(msg, "Failed to read data from sensor!\r\n");
+		HAL_UART_Transmit_IT(&huart4, (uint8_t *)msg, strlen(msg));
+	}
+}
+
+void sensor_setup_IT(uint8_t *setup_reg_data)
+{
+	char msg[100] = {'\0'};
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write_IT(&hi2c2, WRITE_ADDR, CTRL_REG1, I2C_MEMADD_SIZE_8BIT, setup_reg_data, CTRL_REGS);
+	if (status != HAL_OK)
+	{
+		sprintf(msg, "Failed to setup sensor registers!\r\n");
+		HAL_UART_Transmit_IT(&huart4, (uint8_t *)msg, strlen(msg));
+	}
+}
+
+\end{lstlisting}
+
+The \texttt{sensor\_setup\_IT} function writes configuration data to the sensor's control registers using I2C. The \texttt{get\_data\_IT} function reads measurement data from the sensor's output register via the same interrupt-based I2C read.
+
+\subsection*{Results:}
+
+\begin{lstlisting}[numbers=none, caption={Timer control commands using UART}, captionpos=b]
+---- Sent utf8 encoded message: "*12" ----
+[ERR] Must start with '#'! Got 0x2A
+---- Sent utf8 encoded message: "#1*" ----
+[OK] Timer STARTED! status=0
+---- Sent utf8 encoded message: "#2*" ----
+[OK] Timer STOPPED! status=0
+---- Sent utf8 encoded message: "#2*" ----
+[INFO] Timer already STOPPED
+---- Sent utf8 encoded message: "#1*" ----
+[OK] Timer STARTED! status=0
+---- Sent utf8 encoded message: "#1*" ----
+[INFO] Timer already RUNNING
+---- Sent utf8 encoded message: "#3*" ----
+[ERR] Unknown ID=0x33! Use #1* ON / #2* OFF
+\end{lstlisting}
+
+
+The system correctly rejected the malformed frame \texttt{*12} because it did not start with \#, returning the expected error message. Valid commands successfully started and stopped the timer, as indicated by status=0. The state-tracking logic worked properly: sending \texttt{\#2*} twice returned a message that the timer was already stopped, and sending \texttt{\#1*} twice confirmed it was already running. Finally, an unknown command \texttt{\#3*} was properly identified and rejected.
+
+\subsection{b) Discussion:}
+
+Using DMA for UART reception eliminates blocking waits and keeps the CPU responsive while continuously listening for user input. By reinitializing the DMA transfer within \texttt{HAL\_UART\_RxCpltCallback}, a simple command-processing loop is achieved without requiring polling. Since the command size is fixed at three bytes, parsing remains straightforward, and the system can immediately report malformed frames or unknown command identifiers.
+
+A drawback of this method is that it only supports complete three-byte commands. Handling partial inputs, longer messages, or more advanced protocols would require a larger buffer or an alternative approach, such as a ring buffer with delimiter detection. 
+The DMA-based access can be reused very easily and flexible.

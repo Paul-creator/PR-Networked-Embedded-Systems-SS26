@@ -1,0 +1,95 @@
+\section{Task A: Blink an LED with External Interrupts}\label{tsk:task_a}
+
+\subsection{a) Implementation:}
+In this task, an LED was made to blink using a periodic timer interrupt. Two external interrupts, triggered by push-buttons, allowed dynamic adjustment of the blinking interval during runtime: one button increased and the other decreased the cycle time in 100 ms steps. The blinking interval started at 100 ms and was constrained to the range of 100 ms to 1000 ms.
+
+Using the timer interrupt task from Exercise 2 we can configure timer 4 similarly. For the calculations of the Prescaler and Overflow values we refer to Exercise 2. The Configuration of the Timer can be seen in Figure \ref{fig:timer4_config}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{timer4_config.png}
+	\caption{STM32CubeMX configuration of Timer 4}
+	\label{fig:timer4_config}
+\end{figure}
+
+To use the Interrupts we also need to activate the interrups in the Timer NVIC Menu. This can be seen in Figure \ref{fig:timer4_interrupt_config}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{timer4_interrupt_config.png}
+	\caption{STM32CubeMX enabling of the global Interrupt of Timer 4}
+	\label{fig:timer4_interrupt_config}
+\end{figure}
+
+And to use the buttons we need to configure the pins PJ12 and PJ13 as seen in Figure \ref{fig:timer4_btn_config}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{btn_interrupt_config.png}
+	\caption{STM32CubeMX configuring the Buttons to trigger the interrupts}
+	\label{fig:timer4_btn_config}
+\end{figure}
+
+And also in the GPIO Menu, the External Interrupts have to be enabled as seen in Figure \ref{fig:gpio_interrupt_config}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{nvic_config.png}
+	\caption{STM32CubeMX configuring the GPIO with the external Interrupts}
+	\label{fig:gpio_interrupt_config}
+\end{figure}
+
+The ISR implements the adjustment of the LED blinking period using the external interrupts triggered from the button presses. Each button modifies the global variable \texttt{g\_cycle\_steps}, which defines the number of timer ticks corresponding to one blinking cycle. Pressing BTN1 increases the period, while BTN2 decreases it. 
+After each adjustment, the tick counter \texttt{g\_tick\_cnt} is reset to make sure that the new timing takes effect immediately. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Adjustment of the blinking period via external interrupts}, captionpos=b]
+static volatile uint8_t g_cycle_steps = 1;  // 1..10
+static volatile uint8_t g_tick_cnt = 0;     // counts TIM4 ticks (100 ms each)
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == BTN1_Pin)
+	{
+		if (g_cycle_steps < 10) g_cycle_steps++;
+	}
+	else if (GPIO_Pin == BTN2_Pin)
+	{
+		if (g_cycle_steps > 1) g_cycle_steps--;
+	}
+	
+	g_tick_cnt = 0;
+}
+\end{lstlisting}
+
+The function \texttt{HAL\_TIM\_PeriodElapsedCallback} is called automatically whenever TIM4 overflows. The tick counter \texttt{g\_tick\_cnt} is incremented on each timer event. When \texttt{g\_tick\_cnt} reaches the value of \texttt{g\_cycle\_steps}, it is reset to zero and the LED is toggled. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Timer interrupts for LED blinking control}, captionpos=b]
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM4)
+	{
+		if (++g_tick_cnt >= g_cycle_steps)
+		{
+			g_tick_cnt = 0;
+			HAL_GPIO_TogglePin(GPIOJ, SEGDP_Pin);
+		}
+	}
+}
+\end{lstlisting}
+
+
+\subsection{b) Discussion:}
+The implemented solution uses a fixed timer tick combined with a software counter to control the LED blinking period. The External Interrupts handle user input from the two buttons to change the timer period, constrained within the range \SI{100}{\milli\second} to \SI{1}{\second}. 
+The ISR \texttt{HAL\_TIM\_PeriodElapsedCallback} is responsible for counting the fixed ticks and toggling the LED when the accumulated count reaches \texttt{g\_cycle\_steps}. 
+
+This approach keeps all timing and output logic in a single location, simplifying the program flow and minimizing code duplication. 
+
+Another possible approach is to adjust the timer’s period directly by changing the auto-reload register (and, if necessary, the prescaler), allowing TIM4 to generate interrupts at the desired cycle time (\SI{100}{\milli\second}–\SI{1}{\second}) instead of using a fixed \SI{100}{\milli\second} tick. 
+This eliminates the need for a separate software counter, but requires updating the ARR value in STM32CubeMX or in code.
+
+One limitation of this approach is that mechanical button bounce is not filtered, which may cause multiple step changes from a single press.
+
+Overall, the solution demonstrates a robust, interrupt-driven structure where user input and periodic actions are clearly separated. The bounded-step logic and immediate reset behavior make this approach suitable for other real-time parameter adjustment tasks, such as controlling PWM duty cycles or updating sampling intervals in sensor applications.
+
+
+
+

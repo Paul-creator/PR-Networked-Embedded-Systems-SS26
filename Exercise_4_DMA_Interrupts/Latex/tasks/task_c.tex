@@ -1,0 +1,227 @@
+\section{Task C: Read Magnetic Data from LIS3MDL Sensor in Non-Blocking Mode using Interrupts}\label{tsk:task_c}
+
+This task builds on the polling-based sensor readout by implementing non-blocking I2C communication using interrupts. 
+The LIS3MDL Sensor is configured over I2C, and the measured magnetic field values along the X, Y, and Z axes are transmitted to a serial monitor in the specified text format given in the Task description.
+
+\subsection{a) Implementation:}
+First the STMCubeMX setup had to be configured. Here the I2C peripheral has to be configured with the usual timing parameters. This can be seen in Figure \ref{fig:config_i2c}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{i2c_config.png}
+	\caption{STM32CubeMX general settings for I2C}
+	\label{fig:config_i2c}
+\end{figure}
+
+Also the event interrupts of the I2C interface were enabled as seen in Figure \ref{fig:i2c_interrupts}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{i2c_nvic.png}
+	\caption{STM32CubeMX enabling the interrupts of the I2C}
+	\label{fig:i2c_interrupts}
+\end{figure}
+
+
+To read the data, the Data (SDA) and clock (SCL) pins have to be configured as well (Figure \ref{fig:i2c_pins})
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{i2c_pins.png}
+	\caption{STM32CubeMX Pin configuration of I2C}
+	\label{fig:i2c_pins}
+\end{figure}
+
+Although Task C uses interrupt-driven I2C transfers, the I2C2 DMA streams were preconfigured in STM32CubeMX (Figure \ref{fig:config_dma}) to prepare for Task D. Here can also be seen that the UART4 DMA is also configured to allow the serial transmission.
+
+To avoid cache coherency issues with later DMA use, the CPU D-Cache was disabled (Figure \ref{fig:cache_config}). The sensor is initialized via \texttt{HAL\_I2C\_Mem\_Write\_IT}, and the first measurement is triggered in the transmit-complete callback. 
+Each read fetches all six axis bytes in one interrupt-driven transfer, and the receive-complete callback converts them into signed 16-bit values and sets a flag for the main loop.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{dma_i2c.png}
+	\caption{STM32CubeMX configuration of the I2C2 DMA and UART DMA streams}
+	\label{fig:config_dma}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth]{cortex_config.png}
+	\caption{STM32CubeMX disabling of the CPU D-Cache}
+	\label{fig:cache_config}
+\end{figure}
+
+In the FLASH.Id file the same settings as in Task B have to be set to allow for DMA. 
+
+The implemented code performs non-blocking, interrupt-driven I2C communication with the Sensor and outputs the measured magnetic field to a serial monitor. The sensor's I2C write and read addresses are defined as \texttt{WRITE\_ADDR} and \texttt{READ\_ADDR}, while the control registers \texttt{CTRL\_REG1}--\texttt{CTRL\_REG4} are used for configuration. 
+The measurement registers \texttt{OUT\_X\_L}--\texttt{OUT\_Z\_H} contain the low and high bytes of the X, Y, and Z axes, and six bytes are read in a single measurement. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Control registers for the Sensor}, captionpos=b]
+// device address
+#define WRITE_ADDR 0x3C
+#define READ_ADDR 0x3D
+
+// control registers
+#define CTRL_REGS 4
+#define CTRL_REG1 0x20
+#define CTRL_REG2 0x21
+#define CTRL_REG3 0x22
+#define CTRL_REG4 0x23
+
+// Axes registers
+#define OUT_X_L 0x28
+#define OUT_X_H 0x29
+#define OUT_Y_L 0x2A
+#define OUT_Y_H 0x2B
+#define OUT_Z_L 0x2C
+#define OUT_Z_H 0x2D
+#define DATA_REG_SIZE 6
+
+#define DELAY 500
+
+/* USER CODE BEGIN PV */
+uint8_t rx_buffer[DATA_REG_SIZE];
+int16_t data_x;
+int16_t data_y;
+int16_t data_z;
+
+bool read_done = false;
+\end{lstlisting}
+
+The sensor is configured via the \texttt{sensorSetup\_IT} function, which writes the required control register values using the non-blocking \texttt{HAL\_I2C\_Mem\_Write\_IT} function. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={Setup of the Interrupt routine for the Sensor and the method to get the data}, captionpos=b]
+void get_data_IT(uint8_t *buffer)
+{
+	char msg[100] = {'\0'};
+	
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Read_IT(&hi2c2, READ_ADDR, OUT_X_L, I2C_MEMADD_SIZE_8BIT, buffer, DATA_REG_SIZE);
+	if (status != HAL_OK)
+	{
+		sprintf(msg, "Failed to read data from sensor!\r\n");
+		HAL_UART_Transmit_IT(&huart4, (uint8_t *)msg, strlen(msg));
+	}
+}
+
+void sensor_setup_IT(uint8_t *setup_reg_data)
+{
+	char msg[100] = {'\0'};
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write_IT(&hi2c2, WRITE_ADDR, CTRL_REG1, I2C_MEMADD_SIZE_8BIT, setup_reg_data, CTRL_REGS);
+	if (status != HAL_OK)
+	{
+		sprintf(msg, "Failed to setup sensor registers!\r\n");
+		HAL_UART_Transmit_IT(&huart4, (uint8_t *)msg, strlen(msg));
+	}
+}
+
+\end{lstlisting}
+
+
+Upon completion of this write, the \texttt{HAL\_I2C\_MemTxCpltCallback} is triggered, which automatically initiates the first measurement read using \texttt{HAL\_I2C\_Mem\_Read\_IT}. 
+
+\begin{lstlisting}[language=C, numbers=none, caption={I2C read and write methods for the Sensor}, captionpos=b]
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	if (hi2c->Instance == I2C2)
+	{
+		data_x = (int16_t)((rx_buffer[1] << 8) & 0xFF00) | (rx_buffer[0] & 0x00FF);
+		data_y = (int16_t)((rx_buffer[3] << 8) & 0xFF00) | (rx_buffer[2] & 0x00FF);
+		data_z = (int16_t)((rx_buffer[5] << 8) & 0xFF00) | (rx_buffer[4] & 0x00FF);
+		read_done = true;
+	}
+}
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	if (hi2c->Instance == I2C2)
+	{
+		get_data_IT(&rx_buffer);
+	}
+}
+\end{lstlisting}
+
+When the read completes, the \texttt{HAL\_I2C\_MemRxCpltCallback} converts the received six-byte stream into signed 16-bit values for the X, Y, and Z axes and sets a flag indicating that new data is available. In the main loop, the program waits for this flag, scales the raw values by a gain factor to convert them into Gauss, and sends the formatted values via UART using \texttt{HAL\_UART\_Transmit\_IT}. After transmission, the flag is cleared and a new measurement is requested.
+
+\begin{lstlisting}[language=C, numbers=none, caption={I2C read and write methods for the Sensor}, captionpos=b]
+// setup sensor registers
+uint8_t uhp_x_y = 0xFC;
+uint8_t uhp_z = 0x0C;
+uint8_t fs_12 = 0x40;
+uint8_t cont_conv = 0x00;
+uint8_t setup_reg_data[] = {uhp_x_y, fs_12, cont_conv, uhp_z};
+
+uint16_t gain = 2281;
+HAL_StatusTypeDef status;
+char msg[100] = {'\0'};
+
+sensor_setup_IT(&setup_reg_data);
+
+float mag_field_x;
+float mag_field_y;
+float mag_field_z;
+
+while (1)
+{
+	/* USER CODE BEGIN 3 */
+	if (read_done) //read complete
+	{
+		mag_field_x = (float)data_x / gain;
+		mag_field_y = (float)data_y / gain;
+		mag_field_z = (float)data_z / gain;
+		
+		sprintf(msg, "X: %.2f Gauss, Y: %.2f Gauss, Z: %.2f Gauss \r \n", mag_field_x, mag_field_y, mag_field_z);
+		HAL_UART_Transmit_IT(&huart4, (uint8_t *)msg, strlen(msg));
+		HAL_Delay(DELAY);
+		
+		read_done = false;
+		get_data_IT(&rx_buffer); //poll data
+	}
+}
+/* USER CODE END 3 */
+}
+\end{lstlisting}
+
+\subsection*{Results:}
+The magnetometer successfully returned continuous magnetic field readings via I2C with DMA. The DMA-based I2C transfers handled the continuous readout reliably without blocking the CPU, as evidenced by the steady stream of measurements. 
+
+\begin{table}[H]
+    \caption{Magnetic field measurements (Gauss) from the LIS3MDL sensor.}
+	\label{tab:result_gauss}
+	\begin{center}
+		\begin{verbatim}
+		X: -0.34 Gauss, Y: 0.15 Gauss, Z: -0.37 Gauss  
+		X: -0.46 Gauss, Y: 0.05 Gauss, Z: -0.05 Gauss  
+		X: -0.45 Gauss, Y: 0.04 Gauss, Z: -0.07 Gauss  
+		X: -0.45 Gauss, Y: 0.00 Gauss, Z: -0.07 Gauss  
+		X: -0.20 Gauss, Y: -0.28 Gauss, Z: 0.11 Gauss  
+		X: -0.10 Gauss, Y: -0.33 Gauss, Z: 0.09 Gauss  
+		X: 0.08 Gauss, Y: -0.05 Gauss, Z: -0.02 Gauss  
+		X: -0.06 Gauss, Y: 0.06 Gauss, Z: -0.01 Gauss  
+		X: -0.14 Gauss, Y: -0.03 Gauss, Z: -0.10 Gauss  
+		X: -0.18 Gauss, Y: -0.29 Gauss, Z: 0.07 Gauss  
+		X: -0.20 Gauss, Y: -0.27 Gauss, Z: 0.03 Gauss  
+		X: -0.16 Gauss, Y: -0.33 Gauss, Z: 0.10 Gauss  
+		X: -0.08 Gauss, Y: -0.27 Gauss, Z: 0.17 Gauss  
+		X: -0.14 Gauss, Y: -0.30 Gauss, Z: -0.02 Gauss  
+		X: -0.20 Gauss, Y: -0.09 Gauss, Z: -0.22 Gauss  
+		X: -0.18 Gauss, Y: -0.26 Gauss, Z: 0.01 Gauss  
+		X: -0.19 Gauss, Y: -0.26 Gauss, Z: -0.00 Gauss  
+		X: -0.21 Gauss, Y: -0.26 Gauss, Z: -0.02 Gauss  
+		X: -0.17 Gauss, Y: -0.23 Gauss, Z: -0.07 Gauss  
+		X: -0.13 Gauss, Y: -0.36 Gauss, Z: -0.08 Gauss  
+		X: 0.02 Gauss, Y: -0.01 Gauss, Z: 0.13 Gauss  
+		X: 0.02 Gauss, Y: -0.05 Gauss, Z: 0.13 Gauss  
+		X: -0.14 Gauss, Y: -0.27 Gauss, Z: -0.01 Gauss  
+		X: -0.34 Gauss, Y: -0.24 Gauss, Z: -0.04 Gauss  
+		X: -0.44 Gauss, Y: -0.24 Gauss, Z: -0.09 Gauss  
+		X: -0.43 Gauss, Y: -0.24 Gauss, Z: -0.10 Gauss  
+		X: -0.44 Gauss, Y: -0.24 Gauss, Z: -0.09 Gauss  
+		X: -0.44 Gauss, Y: -0.24 Gauss, Z: -0.09 Gauss  
+		\end{verbatim}
+	\end{center}
+\end{table}
+
+\subsection{b) Discussion:}
+This task extends the previous polling-based implementation by using non-blocking, interrupt-driven I2C transfers. Unlike polling, which blocks the CPU while waiting for bus operations, the interrupt-driven approach allows the CPU to perform other tasks and continues program execution only when transfers complete via callbacks. This improves CPU efficiency and responsiveness but adds complexity, requiring flags (e.g., \texttt{read\_done}) to synchronize between interrupts and the main loop. 
+The first measurement is triggered in the transmit-complete callback, ensuring a valid startup after sensor configuration, while callbacks handle acquisition and the main loop manages formatting and output. Enabling the DMA streams in CubeMX also prepared the design for Task D. 
+From the earlier Task, the the parameterized helper functions for sensor setup and data acquisition and the callback-driven readout chain can be mostly reused.
