@@ -1,0 +1,215 @@
+% !TEX root = ../main.tex
+
+\section{Task A: Read Data from the LIS3MDL Magnetic Sensor}
+
+\subsection{a) Calculations:}
+
+The LIS3MDL is configured once after startup by writing the control registers via I\textsuperscript{2}C. In the implemented solution, \texttt{CTRL\_REG1} to \texttt{CTRL\_REG4} are written; a \texttt{WHO\_AM\_I} check would be possible but is not used.
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{3cm}|>{\raggedright\arraybackslash}p{2.4cm}|>{\raggedright\arraybackslash}p{4.2cm}|}
+		\hline
+		\textbf{Parameter Description}                                            & \textbf{Value}          & \textbf{Unit (if any)} & \textbf{Register Address} \\ \hline
+		Read device identity (\texttt{WHO\_AM\_I}), expected response             & optional, \texttt{0x3D} & --                     & \texttt{0x0F}             \\ \hline
+		Configure X/Y performance mode and output data rate (\texttt{CTRL\_REG1}) & \texttt{0xFC}           & --                     & \texttt{0x20}             \\ \hline
+		Configure full-scale range (\texttt{CTRL\_REG2})                          & \texttt{0x40}           & $\pm 12$~Gauss         & \texttt{0x21}             \\ \hline
+		Enable continuous-conversion mode (\texttt{CTRL\_REG3})                   & \texttt{0x00}           & --                     & \texttt{0x22}             \\ \hline
+		Configure Z-axis performance mode (\texttt{CTRL\_REG4})                   & \texttt{0x0C}           & --                     & \texttt{0x23}             \\ \hline
+		Optional: block data update / endianness (\texttt{CTRL\_REG5})            & not used                & --                     & \texttt{0x24}             \\ \hline
+	\end{tabularx}
+\end{table}
+
+Meaning of the written values:
+\begin{itemize}
+	\item \texttt{CTRL\_REG1}: X/Y operating mode and output data rate,
+	\item \texttt{CTRL\_REG2}: full-scale selection, here $\pm 12$~Gauss,
+	\item \texttt{CTRL\_REG3}: continuous-conversion mode,
+	\item \texttt{CTRL\_REG4}: Z-axis operating mode.
+\end{itemize}
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{0.85\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+		\hline
+		\textbf{Description}                                            & \textbf{Register Address} \\ \hline
+		X-axis low byte (\texttt{SENSOR\_OUT\_X\_L})                    & \texttt{0x28}             \\ \hline
+		X-axis high byte (\texttt{SENSOR\_OUT\_X\_H})                   & \texttt{0x29}             \\ \hline
+		Y-axis low byte (\texttt{SENSOR\_OUT\_Y\_L})                    & \texttt{0x2A}             \\ \hline
+		Y-axis high byte (\texttt{SENSOR\_OUT\_Y\_H})                   & \texttt{0x2B}             \\ \hline
+		Z-axis low byte (\texttt{SENSOR\_OUT\_Z\_L})                    & \texttt{0x2C}             \\ \hline
+		Z-axis high byte (\texttt{SENSOR\_OUT\_Z\_H})                   & \texttt{0x2D}             \\ \hline
+		Status register (\texttt{STATUS\_REG}, optional before readout) & \texttt{0x27}             \\ \hline
+	\end{tabularx}
+\end{table}
+
+Each axis value is stored in two 8-bit registers and is combined to a signed 16-bit value:
+\[
+	M_{x,\mathrm{raw}} = (\texttt{OUT\_X\_H} \ll 8) \; | \; \texttt{OUT\_X\_L},
+\]
+\[
+	M_{y,\mathrm{raw}} = (\texttt{OUT\_Y\_H} \ll 8) \; | \; \texttt{OUT\_Y\_L}, \qquad
+	M_{z,\mathrm{raw}} = (\texttt{OUT\_Z\_H} \ll 8) \; | \; \texttt{OUT\_Z\_L}.
+\]
+For the selected range $\pm 12$~Gauss the sensitivity is
+\[
+	S = 2281~\mathrm{LSB/Gauss},
+\]
+therefore
+\[
+	M_{\mathrm{Gauss}} = \frac{M_{\mathrm{raw}}}{2281}.
+\]
+In the code, milli-Gauss are used to print three decimal places without floating-point arithmetic:
+\[
+	M_{\mathrm{mGauss}} = \frac{M_{\mathrm{raw}} \cdot 1000}{2281}.
+\]
+The implemented plausibility check reports an error if
+\[
+	M_{\mathrm{mGauss}} \notin [-12000,12000].
+\]
+
+\subsection{b) Implementation:}
+
+UART4 and I2C2 were configured in STM32CubeMX. UART4 is used for the serial output and I2C2 for communication with the LIS3MDL.
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.72\textwidth]{TaskA_URAT_Conf.png}
+	\end{center}
+	\caption{CubeMX configuration for UART4}
+\end{figure}
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.72\textwidth]{TaskA_I2C_Conf1.png}
+	\end{center}
+	\caption{CubeMX configuration for I2C2}
+\end{figure}
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.82\textwidth]{TaskA_I2C_Conf2.png}
+	\end{center}
+	\caption{I2C GPIO configuration}
+\end{figure}
+
+The code was inserted into STM32CubeMX user blocks. Only the relevant parts are shown below.
+
+\begin{lstlisting}[language=C,caption={Additional include files in USER CODE BEGIN Includes}]
+/* USER CODE BEGIN Includes */
+#include "string.h"
+#include "stdio.h"
+/* USER CODE END Includes */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Register and address macros in USER CODE BEGIN PD}]
+/* USER CODE BEGIN PD */
+// Sensor device addresses
+#define SENSOR_WRITE_ADDR   0x3C
+#define SENSOR_READ_ADDR    0x3D
+
+// Control registers
+#define SENSOR_CTRL_REG1    0x20
+#define SENSOR_CTRL_REG2    0x21
+#define SENSOR_CTRL_REG3    0x22
+#define SENSOR_CTRL_REG4    0x23
+
+// Output registers for raw magnetic field data
+#define SENSOR_OUT_X_L      0x28
+#define SENSOR_OUT_X_H      0x29
+#define SENSOR_OUT_Y_L      0x2A
+#define SENSOR_OUT_Y_H      0x2B
+#define SENSOR_OUT_Z_L      0x2C
+#define SENSOR_OUT_Z_H      0x2D
+/* USER CODE END PD */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Function prototypes in USER CODE BEGIN PFP}]
+/* USER CODE BEGIN PFP */
+void getMagField(uint16_t addressAxisL, uint16_t addressAxisH,
+                 uint16_t divFactor, char axis);
+void checkForImpossibleVal(int32_t magneticField_mGauss);
+/* USER CODE END PFP */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Measurement and basic error handling in USER CODE BEGIN 0}]
+/* USER CODE BEGIN 0 */
+void getMagField(uint16_t addressAxisL, uint16_t addressAxisH, uint16_t divFactor, char axis)
+{
+    uint8_t outLsb = 0;
+    uint8_t outMsb = 0;
+    int16_t rawOutput = 0;
+    int32_t magneticField_mGauss = 0;
+    ...
+    HAL_I2C_Mem_Read(&hi2c2, SENSOR_READ_ADDR, addressAxisL,
+                     I2C_MEMADD_SIZE_8BIT, &outLsb, 1, HAL_MAX_DELAY);
+    HAL_I2C_Mem_Read(&hi2c2, SENSOR_READ_ADDR, addressAxisH,
+                     I2C_MEMADD_SIZE_8BIT, &outMsb, 1, HAL_MAX_DELAY);
+
+    rawOutput = (int16_t)(((uint16_t)outMsb << 8) | outLsb);
+    magneticField_mGauss = ((int32_t)rawOutput * 1000) / divFactor;
+    checkForImpossibleVal(magneticField_mGauss);
+
+    // unchanged formatting code for X/Y/Z output
+    ...
+    HAL_UART_Transmit(&huart4, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+    HAL_Delay(200);
+}
+
+void checkForImpossibleVal(int32_t magneticField_mGauss)
+{
+    if (magneticField_mGauss > 12000 || magneticField_mGauss < -12000)
+    {
+        char msg[64] = {'\0'};
+        sprintf(msg, "Error magnetic field value > 12 Gauss\r\n");
+        HAL_UART_Transmit(&huart4, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+        HAL_Delay(200);
+    }
+}
+/* USER CODE END 0 */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Sensor initialization in USER CODE BEGIN 2}]
+/* USER CODE BEGIN 2 */
+uint8_t xyConfig = 0xFC;
+uint8_t zConfig = 0x0C;
+uint8_t scaleConfig = 0x40;
+uint8_t modeConfig = 0x00;
+uint16_t gain = 2281;
+
+HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG1,
+                  I2C_MEMADD_SIZE_8BIT, &xyConfig, 1, HAL_MAX_DELAY);
+HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG4,
+                  I2C_MEMADD_SIZE_8BIT, &zConfig, 1, HAL_MAX_DELAY);
+HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG2,
+                  I2C_MEMADD_SIZE_8BIT, &scaleConfig, 1, HAL_MAX_DELAY);
+HAL_I2C_Mem_Write(&hi2c2, SENSOR_WRITE_ADDR, SENSOR_CTRL_REG3,
+                  I2C_MEMADD_SIZE_8BIT, &modeConfig, 1, HAL_MAX_DELAY);
+/* USER CODE END 2 */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Three-axis readout in the while-loop}]
+/* USER CODE END WHILE */
+getMagField(SENSOR_OUT_X_L, SENSOR_OUT_X_H, gain, 'X');
+getMagField(SENSOR_OUT_Y_L, SENSOR_OUT_Y_H, gain, 'Y');
+getMagField(SENSOR_OUT_Z_L, SENSOR_OUT_Z_H, gain, 'Z');
+/* USER CODE BEGIN 3 */
+\end{lstlisting}
+
+\subsection{c) Results:}
+
+The measured values were transmitted via UART4 in the required format:
+
+\begin{lstlisting}[caption={UART output of the magnetic field values}]
+---- Opened the serial port /dev/ttyACM1 ----
+: -0.448 Gauss
+X: 0.535 Gauss, Y: -0.101 Gauss, Z: -0.455 Gauss
+X: 0.539 Gauss, Y: -0.104 Gauss, Z: -0.455 Gauss
+X: 0.544 Gauss, Y: -0.110 Gauss, Z: -0.455 Gauss
+X: 0.543 Gauss, Y: -0.109 Gauss,
+---- Closed the serial port /dev/ttyACM1 ----
+\end{lstlisting}
+
+\subsection{d) Discussion:}
+
+The central design decision was to use one generic readout function for all three axes. This avoids duplicated code and keeps the register handling in one place. The implemented error handling is limited to a plausibility check of the converted magnetic value; the return values of the HAL I\textsuperscript{2}C functions are not evaluated. Reusable parts are the register macros, the generic readout function, and the UART output routine. A useful extension would be a \texttt{WHO\_AM\_I} check and direct handling of I\textsuperscript{2}C transfer errors.

@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+  "name": "Cortex debug",
+  "type": "cortex-debug",
+  "request": "launch",
+  "servertype": "bmp",
+  "BMPGDBSerialPort": "/dev/serial/by-id/usb-Black_Sphere_Technologies_Black_Magic_Probe_C2DC952B-if00",
+  "armToolchainPath": "/home/paul/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin",
+  "gdbPath": "/home/paul/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+  "cwd": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/startup",
+  "executable": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/startup/build/startup.elf",
+  "svdFile": "/home/paul/Desktop/NES-PR/Exercise_1_GPIO/Tasks/Task_0_genreated_project/STM32H743x.svd",
+  "showDevDebugOutput": "raw",
+  "preLaunchCommands": [
+    "monitor swdp_scan",
+    "attach 1",
+    "load"
+  ]
+}
+    ]
+}

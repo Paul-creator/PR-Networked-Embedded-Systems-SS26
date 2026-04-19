@@ -1,30 +1,158 @@
+%%% Local Variables:
+%%% mode: LaTeX
+%%% TeX-master: "../main"
+%%% End:
+
 \section{Task E: Display the Current Step}
 
 \subsection{a) Calculations:}
-\textit{Fill in the table. For each number, mark the relevant cell with 0 (off) or 1 (on)!}
 
 \begin{table}[h]
-    \centering\small
-    \begin{tabularx}{\textwidth}{|c|*{7}{>{\centering\arraybackslash}X|}}
-        \hline
-        \textbf{No} & \textbf{SEGA} & \textbf{SEGB} & \textbf{SEGC} & \textbf{SEGD} & \textbf{SEGE} & \textbf{SEGF} & \textbf{SEGG} \\ \hline
-        0 & & & & & & & \\ \hline
-        1 & & & & & & & \\ \hline
-        2 & & & & & & & \\ \hline
-        3 & & & & & & & \\ \hline
-        4 & & & & & & & \\ \hline
-        5 & & & & & & & \\ \hline
-        6 & & & & & & & \\ \hline
-        7 & & & & & & & \\ \hline
-        8 & & & & & & & \\ \hline
-        9 & & & & & & & \\ \hline
-    \end{tabularx}
+	\centering\small
+	\begin{tabularx}{\textwidth}{|c|*{7}{>{\centering\arraybackslash}X|}}
+		\hline
+		\textbf{No} & \textbf{SEGA} & \textbf{SEGB} & \textbf{SEGC} & \textbf{SEGD} & \textbf{SEGE} & \textbf{SEGF} & \textbf{SEGG} \\ \hline
+		0           & 1             & 1             & 1             & 1             & 1             & 1             & 0             \\ \hline
+		1           & 0             & 1             & 1             & 0             & 0             & 0             & 0             \\ \hline
+		2           & 1             & 1             & 0             & 1             & 1             & 0             & 1             \\ \hline
+		3           & 1             & 1             & 1             & 1             & 0             & 0             & 1             \\ \hline
+		4           & 0             & 1             & 1             & 0             & 0             & 1             & 1             \\ \hline
+		5           & 1             & 0             & 1             & 1             & 0             & 1             & 1             \\ \hline
+		6           & 1             & 0             & 1             & 1             & 1             & 1             & 1             \\ \hline
+		7           & 1             & 1             & 1             & 0             & 0             & 0             & 0             \\ \hline
+		8           & 1             & 1             & 1             & 1             & 1             & 1             & 1             \\ \hline
+		9           & 1             & 1             & 1             & 1             & 0             & 1             & 1             \\ \hline
+	\end{tabularx}
+	\caption{Segment assignment for the digits 0 to 9}
+	\label{tab:taskE_segments}
 \end{table}
 
-\textit{Describe how you can assign these values to the 7-segment display.}
+A value of \texttt{1} switches the segment on, and \texttt{0} switches it off.
+The current step is calculated from the cycle time by
+\[
+	\texttt{step}=\frac{\texttt{cycleTime}-\texttt{minCycleTime}}{\texttt{stepSize}}.
+\]
+Thus, the cycle times from $100\,\text{ms}$ to $1900\,\text{ms}$ are mapped to the values 0 to 9.
+The segment patterns are stored in a lookup table and written to Port J by bit manipulation.
 
-\subsection{c) Implementation:}
-\subsection{b) Results:}
-\textit{Add pictures of the 7-segment display showing different step size}
+\subsection{b) Implementation:}
+
+The digits are stored as bit patterns in an array.
+The function \texttt{DisplayStep()} calculates the current step and writes the corresponding value to the 7-segment display.
+Button~1 decreases the cycle time, Button~2 increases it. The decimal point is toggled for visual feedback.
+
+\begin{lstlisting}
+/* USER CODE BEGIN PV */
+uint32_t cycleTime = 100;
+const uint32_t minCycleTime = 100;
+const uint32_t maxCycleTime = 1900;
+const uint32_t stepSize = 200;
+
+GPIO_PinState lastBtn1State;
+GPIO_PinState lastBtn2State;
+
+const uint8_t sevenSegDigits[10] =
+{
+  0x3F, /* 0 */
+  0x06, /* 1 */
+  0x5B, /* 2 */
+  0x4F, /* 3 */
+  0x66, /* 4 */
+  0x6D, /* 5 */
+  0x7D, /* 6 */
+  0x07, /* 7 */
+  0x7F, /* 8 */
+  0x6F  /* 9 */
+};
+/* USER CODE END PV */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN PFP */
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState);
+/* USER CODE END PFP */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN 0 */
+void DisplayStep(uint32_t currentCycleTime, GPIO_PinState dpState)
+{
+  uint32_t step = (currentCycleTime - minCycleTime) / stepSize;
+  uint32_t odrValue = GPIOJ->ODR & ~0xFFU;
+
+  odrValue |= sevenSegDigits[step];
+
+  if (dpState == GPIO_PIN_SET)
+  {
+    odrValue |= (1U << 7);
+  }
+
+  GPIOJ->ODR = odrValue;
+}
+/* USER CODE END 0 */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* USER CODE BEGIN 2 */
+lastBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+lastBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+/* USER CODE END 2 */
+\end{lstlisting}
+
+\begin{lstlisting}
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+  GPIO_PinState currentBtn1State = HAL_GPIO_ReadPin(GPIOJ, BTN1_Pin);
+  GPIO_PinState currentBtn2State = HAL_GPIO_ReadPin(GPIOJ, BTN2_Pin);
+  uint32_t onTime = cycleTime / 2;
+  uint32_t offTime = cycleTime - onTime;
+
+  if ((lastBtn1State == GPIO_PIN_RESET) && (currentBtn1State == GPIO_PIN_SET))
+  {
+    if (cycleTime > minCycleTime)
+    {
+      cycleTime -= stepSize;
+    }
+  }
+
+  if ((lastBtn2State == GPIO_PIN_RESET) && (currentBtn2State == GPIO_PIN_SET))
+  {
+    if (cycleTime < maxCycleTime)
+    {
+      cycleTime += stepSize;
+    }
+  }
+
+  lastBtn1State = currentBtn1State;
+  lastBtn2State = currentBtn2State;
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  DisplayStep(cycleTime, GPIO_PIN_RESET);
+  HAL_Delay(offTime);
+
+  DisplayStep(cycleTime, GPIO_PIN_SET);
+  HAL_Delay(onTime);
+}
+/* USER CODE END 3 */
+\end{lstlisting}
+
+\subsection{c) Results:}
+The correct step from 0 to 9 is shown on the 7-segment display.
+Pressing BTN1 decreases the step, pressing BTN2 increases it.
+The decimal point blinks, so changes can be seen immediately.
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.30\textwidth]{Task_E.jpg}
+	\end{center}
+	\caption{7-segment display showing step size 3}\label{fig:task1_board_image}
+\end{figure}
+
 
 \subsection{d) Discussion:}
+The lookup table makes the code simple and reusable.
+Bit manipulation allows all segments to be set efficiently at once.
+A limitation is the use of polling and \texttt{HAL\_Delay()}, since the processor is blocked during the delay.

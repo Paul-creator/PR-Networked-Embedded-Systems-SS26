@@ -1,0 +1,41 @@
+% !TEX root = ../main.tex
+
+\section{Theory Questions}
+
+\subsection{a) What is calibration and why do the sensors need that? How are calibration values used to calculate the measurement result? Visualize the relation between calibration curve and measured values (simplified, e.g., linear curves).}
+
+Calibration describes the relation between a raw sensor output and the corresponding physical quantity. Sensors require calibration because manufacturing tolerances, temperature effects, and aging cause deviations from the ideal characteristic. The stored calibration values are used to convert the measured raw value into the physical value. For a simplified linear model,
+\[
+	y = a\,x + b
+\]
+with raw value $x$, calibrated value $y$, gain $a$, and offset $b$.
+
+\begin{center}
+	\begin{tikzpicture}
+		\draw[->] (0,0) -- (4,0) node[right] {raw value $x$};
+		\draw[->] (0,0) -- (0,4) node[above] {physical value $y$};
+		\draw[thick] (0.5,0.5) -- (3.5,3.2) node[right] {calibration curve};
+	\end{tikzpicture}
+\end{center}
+
+The calibrated result is obtained by inserting the measured raw value into the calibration function.
+
+\subsection{b) Describe I2C. Where do we use it? How does communication via I2C work?}
+
+I\textsuperscript{2}C (Inter-Integrated Circuit) is a synchronous serial bus for short-distance communication between integrated circuits on the same board. In this practicum it is used to communicate with the sensors.
+
+The bus uses two lines,
+\[
+	\text{SDA (data)}, \qquad \text{SCL (clock)}
+\]
+and follows a master-slave principle. The master generates the clock and starts each transfer. A typical transfer consists of start condition, slave address with read/write bit, acknowledge, one or more data bytes with acknowledge, and stop condition.
+
+\subsection{c) Describe UART. What does the abbreviation mean? How does communication via UART work?}
+
+UART stands for Universal Asynchronous Receiver Transmitter. It is an asynchronous serial interface, therefore no separate clock line is used. Instead, both devices must use the same baud rate.
+
+The basic signals are
+\[
+	\text{TX (transmit)}, \qquad \text{RX (receive)}
+\]
+and a frame consists of one start bit, 5--9 data bits, an optional parity bit, and one or two stop bits. In this practicum UART4 is used to send the measured values to the serial monitor.

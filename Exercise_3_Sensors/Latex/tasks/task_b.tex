@@ -1,0 +1,193 @@
+% !TEX root = ../main.tex
+
+\section{Task B: Read Humidity Values from the HTS221 Sensor}
+
+\subsection{a) Calculations:}
+
+The HTS221 is activated by writing
+\[
+	\texttt{CTRL\_REG1} = \texttt{0x81}
+\]
+to register \texttt{0x20}. The default value of \texttt{CTRL\_REG1} is \texttt{0x00}; after reset the sensor is therefore powered down.
+
+For \texttt{0x81} = $1000\,0001_2$:
+\begin{itemize}
+	\item \texttt{PD = 1}: sensor active,
+	\item \texttt{BDU = 0}: continuous register update,
+	\item \texttt{ODR1:ODR0 = 01}: output data rate $1\,\mathrm{Hz}$.
+\end{itemize}
+
+The relative humidity is calculated by linear interpolation between two factory calibration points:
+\[
+	RH = H_0 + \frac{H_1 - H_0}{H_{1T0\_OUT} - H_{0T0\_OUT}} \cdot \left(H_{\mathrm{OUT}} - H_{0T0\_OUT}\right).
+\]
+The calibration values are stored as
+\[
+	H_0 = \frac{\texttt{H0\_rH\_x2}}{2}, \qquad H_1 = \frac{\texttt{H1\_rH\_x2}}{2}
+\]
+and the raw values are reconstructed from the register pairs
+\[
+	H_{\mathrm{OUT}} = (\texttt{HUMIDITY\_OUT\_H} \ll 8)\;|\;\texttt{HUMIDITY\_OUT\_L},
+\]
+\[
+	H_{0T0\_OUT} = (\texttt{H0\_T0\_OUT\_H} \ll 8)\;|\;\texttt{H0\_T0\_OUT\_L}, \qquad
+	H_{1T0\_OUT} = (\texttt{H1\_T0\_OUT\_H} \ll 8)\;|\;\texttt{H1\_T0\_OUT\_L}.
+\]
+In the implementation the result is scaled by 10 so that one decimal place can be printed without floating-point arithmetic:
+\[
+	RH_{x10} = RH0_{x10} + \frac{(RH1_{x10} - RH0_{x10})\cdot(H_{\mathrm{OUT}} - H_{0T0\_OUT})}{H_{1T0\_OUT} - H_{0T0\_OUT}},
+\]
+with
+\[
+	RH0_{x10} = 5\cdot\texttt{H0\_rH\_x2}, \qquad RH1_{x10} = 5\cdot\texttt{H1\_rH\_x2}.
+\]
+Finally, the value is limited to
+\[
+	0 \le RH_{x10} \le 1000.
+\]
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.7cm}|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{3cm}|}
+		\hline
+		\textbf{Parameter}        & \textbf{Description}                                      & \textbf{Value or source}                    & \textbf{Unit (if any)} & \textbf{Register address}    \\ \hline
+		\texttt{CTRL\_REG1}       & Startup configuration register                            & set to \texttt{0x81}                        & --                     & \texttt{0x20}                \\ \hline
+		\texttt{H0\_rH\_x2}       & First humidity calibration point, stored multiplied by 2  & sensor calibration constant                 & \% rH $\times 2$       & \texttt{0x30}                \\ \hline
+		\texttt{H1\_rH\_x2}       & Second humidity calibration point, stored multiplied by 2 & sensor calibration constant                 & \% rH $\times 2$       & \texttt{0x31}                \\ \hline
+		\(H_0\)                   & First humidity calibration value                          & \(\texttt{H0\_rH\_x2}/2\)                   & \% rH                  & derived from \texttt{0x30}   \\ \hline
+		\(H_1\)                   & Second humidity calibration value                         & \(\texttt{H1\_rH\_x2}/2\)                   & \% rH                  & derived from \texttt{0x31}   \\ \hline
+		\texttt{H0\_T0\_OUT\_L}   & Low byte of first calibration output                      & sensor calibration constant                 & --                     & \texttt{0x36}                \\ \hline
+		\texttt{H0\_T0\_OUT\_H}   & High byte of first calibration output                     & sensor calibration constant                 & --                     & \texttt{0x37}                \\ \hline
+		\(H_{0T0\_OUT}\)          & First raw calibration output                              & \((\texttt{0x37} \ll 8)\;|\;\texttt{0x36}\) & LSB                    & \texttt{0x36}, \texttt{0x37} \\ \hline
+		\texttt{H1\_T0\_OUT\_L}   & Low byte of second calibration output                     & sensor calibration constant                 & --                     & \texttt{0x3A}                \\ \hline
+		\texttt{H1\_T0\_OUT\_H}   & High byte of second calibration output                    & sensor calibration constant                 & --                     & \texttt{0x3B}                \\ \hline
+		\(H_{1T0\_OUT}\)          & Second raw calibration output                             & \((\texttt{0x3B} \ll 8)\;|\;\texttt{0x3A}\) & LSB                    & \texttt{0x3A}, \texttt{0x3B} \\ \hline
+		\texttt{HUMIDITY\_OUT\_L} & Low byte of measured humidity output                      & current sensor value                        & --                     & \texttt{0x28}                \\ \hline
+		\texttt{HUMIDITY\_OUT\_H} & High byte of measured humidity output                     & current sensor value                        & --                     & \texttt{0x29}                \\ \hline
+		\(H_{\mathrm{OUT}}\)      & Current raw humidity output                               & \((\texttt{0x29} \ll 8)\;|\;\texttt{0x28}\) & LSB                    & \texttt{0x28}, \texttt{0x29} \\ \hline
+		\(RH\)                    & Calculated relative humidity                              & computed from interpolation formula         & \% rH                  & --                           \\ \hline
+	\end{tabularx}
+\end{table}
+
+\subsection{b) Implementation:}
+
+The implementation is divided into reusable helper functions for UART output, I\textsuperscript{2}C register access, initialization, and humidity conversion. Only the relevant blocks are shown.
+
+\begin{lstlisting}[language=C,caption={Additional include files in USER CODE BEGIN Includes}]
+/* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+/* USER CODE END Includes */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Register and address definitions in USER CODE BEGIN PD}]
+/* USER CODE BEGIN PD */
+#define HTS221_ADDR                 (0x5F << 1)
+#define HTS221_AUTOINC              0x80
+
+#define HTS221_WHO_AM_I             0x0F
+#define HTS221_CTRL_REG1            0x20
+#define HTS221_HUMIDITY_OUT_L       0x28
+#define HTS221_H0_rH_x2             0x30
+#define HTS221_H1_rH_x2             0x31
+#define HTS221_H0_T0_OUT_L          0x36
+#define HTS221_H1_T0_OUT_L          0x3A
+/* USER CODE END PD */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={HTS221 initialization with error handling in USER CODE BEGIN 0}]
+static HAL_StatusTypeDef HTS221_Init(void)
+{
+    uint8_t whoami = 0;
+    uint8_t check = 0;
+
+    if (HAL_I2C_IsDeviceReady(&hi2c2, HTS221_ADDR, 3, 100) != HAL_OK)
+    {
+        UART4_Print("ERROR: HTS221 not ready on I2C2\r\n");
+        return HAL_ERROR;
+    }
+    if (HTS221_ReadReg(HTS221_WHO_AM_I, &whoami) != HAL_OK) return HAL_ERROR;
+    if (whoami != 0xBC) return HAL_ERROR;
+    if (HTS221_WriteReg(HTS221_CTRL_REG1, 0x81) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_CTRL_REG1, &check) != HAL_OK) return HAL_ERROR;
+    if (check != 0x81) return HAL_ERROR;
+
+    HAL_Delay(100);
+    return HAL_OK;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Humidity readout and conversion in USER CODE BEGIN 0}]
+static HAL_StatusTypeDef HTS221_ReadHumidity_x10(int32_t *rh_x10)
+{
+    uint8_t buffer[2];
+    uint8_t h0_rH_x2, h1_rH_x2;
+    int16_t h0_t0_out, h1_t0_out, h_out;
+    int32_t rh0_x10, rh1_x10, denominator, result_x10;
+
+    if (HTS221_ReadReg(HTS221_H0_rH_x2, &h0_rH_x2) != HAL_OK) return HAL_ERROR;
+    if (HTS221_ReadReg(HTS221_H1_rH_x2, &h1_rH_x2) != HAL_OK) return HAL_ERROR;
+
+    HTS221_ReadRegs(HTS221_H0_T0_OUT_L, buffer, 2);
+    h0_t0_out = HTS221_CombineInt16(buffer[0], buffer[1]);
+    HTS221_ReadRegs(HTS221_H1_T0_OUT_L, buffer, 2);
+    h1_t0_out = HTS221_CombineInt16(buffer[0], buffer[1]);
+    HTS221_ReadRegs(HTS221_HUMIDITY_OUT_L, buffer, 2);
+    h_out = HTS221_CombineInt16(buffer[0], buffer[1]);
+
+    denominator = (int32_t)h1_t0_out - (int32_t)h0_t0_out;
+    if (denominator == 0) return HAL_ERROR;
+
+    rh0_x10 = (int32_t)h0_rH_x2 * 5;
+    rh1_x10 = (int32_t)h1_rH_x2 * 5;
+    result_x10 = rh0_x10 +
+                 ((rh1_x10 - rh0_x10) * ((int32_t)h_out - (int32_t)h0_t0_out)) / denominator;
+
+    if (result_x10 < 0) result_x10 = 0;
+    else if (result_x10 > 1000) result_x10 = 1000;
+
+    *rh_x10 = result_x10;
+    return HAL_OK;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Sensor startup and measurement loop}]
+/* USER CODE BEGIN 2 */
+if (HTS221_Init() != HAL_OK)
+{
+    while (1)
+    {
+        UART4_Print("ERROR\r\n");
+        HAL_Delay(1000);
+    }
+}
+/* USER CODE END 2 */
+
+while (1)
+{
+    int32_t humidity_x10;
+
+    if (HTS221_ReadHumidity_x10(&humidity_x10) == HAL_OK)
+        UART4_PrintHumidity_x10(humidity_x10);
+    else
+        UART4_Print("ERROR: humidity measurement failed\r\n");
+
+    HAL_Delay(1000);
+}
+\end{lstlisting}
+
+\subsection{c) Results:}
+
+The measured humidity values were printed successfully via UART4:
+
+\begin{lstlisting}[caption={UART output of the humidity measurement}]
+37.6% RH
+37.6% RH
+37.6% RH
+37.5% RH
+\end{lstlisting}
+
+\subsection{d) Discussion:}
+
+The separation into helper functions improves readability and allows the same I\textsuperscript{2}C and UART infrastructure to be reused in Task C. Integer arithmetic with the scaling factor \texttt{RH\_x10} avoids floating-point operations. Compared to the minimum requirement, the implementation additionally checks device readiness, \texttt{WHO\_AM\_I}, register read-back, division by zero, and clipping to the physically meaningful range $0\%$ to $100\%$. A simple optimization would be to read the calibration constants only once during initialization.

@@ -1,0 +1,184 @@
+% !TEX root = ../main.tex
+
+\section{Task D: Read Temperature \& Pressure Values from the LPS22HH Sensor}
+
+\subsection{a) Calculations:}
+
+The implemented solution uses continuous mode with an output data rate of $1\,\mathrm{Hz}$. In the code,
+\[
+	\texttt{CTRL\_REG1} = \texttt{0x10}
+\]
+is written explicitly. According to the register definition, this selects continuous measurements with $1\,\mathrm{Hz}$. \texttt{CTRL\_REG2} is not written in the code; its default value is used.
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+		\hline
+		\textbf{Register}   & \textbf{Value}                               \\ \hline
+		\texttt{CTRL\_REG1} & \texttt{0x10}                                \\ \hline
+		\texttt{CTRL\_REG2} & default setting used                          \\ \hline
+	\end{tabularx}
+\end{table}
+
+The pressure is stored in three output registers and converted with the fixed sensitivity from the datasheet:
+\[
+	P_{\mathrm{raw}} = (\texttt{PRESS\_OUT\_H} \ll 16)\;|\;(\texttt{PRESS\_OUT\_L} \ll 8)\;|\;\texttt{PRESS\_OUT\_XL},
+\]
+\[
+	P_{\mathrm{hPa}} = \frac{P_{\mathrm{raw}}}{4096}.
+\]
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{2cm}|>{\raggedright\arraybackslash}p{3cm}|}
+		\hline
+		\textbf{Parameter}      & \textbf{Description}                                       & \textbf{Value or source}                                               & \textbf{Unit (if any)} & \textbf{Register Address}                   \\ \hline
+		\texttt{PRESS\_OUT\_XL} & Least significant byte of raw pressure output              & current sensor value                                                   & --                     & \texttt{0x28}                               \\ \hline
+		\texttt{PRESS\_OUT\_L}  & Middle byte of raw pressure output                         & current sensor value                                                   & --                     & \texttt{0x29}                               \\ \hline
+		\texttt{PRESS\_OUT\_H}  & Most significant byte of raw pressure output               & current sensor value                                                   & --                     & \texttt{0x2A}                               \\ \hline
+		\(P_{\mathrm{raw}}\)    & 24-bit raw pressure value                                  & \((\texttt{0x2A} \ll 16)\;|\;(\texttt{0x29} \ll 8)\;|\;\texttt{0x28}\) & LSB                    & \texttt{0x28}, \texttt{0x29}, \texttt{0x2A} \\ \hline
+		\(P_{\mathrm{hPa}}\)    & Calculated pressure                                        & \(P_{\mathrm{raw}} / 4096\)                                            & hPa                    & --                                          \\ \hline
+	\end{tabularx}
+\end{table}
+
+The temperature is stored as a signed 16-bit value:
+\[
+	T_{\mathrm{raw}} = (\texttt{TEMP\_OUT\_H} \ll 8)\;|\;\texttt{TEMP\_OUT\_L},
+\]
+\[
+	T_{^\circ\mathrm{C}} = \frac{T_{\mathrm{raw}}}{100}.
+\]
+In the implementation, tenths of a degree are used:
+\[
+	T_{x10} = \frac{T_{\mathrm{raw}}\cdot 10}{100}.
+\]
+
+\begin{table}[H]
+	\centering
+	\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}p{2.8cm}|>{\raggedright\arraybackslash}p{2cm}|>{\raggedright\arraybackslash}p{3cm}|}
+		\hline
+		\textbf{Parameter}       & \textbf{Description}                                       & \textbf{Value or Source}                    & \textbf{Unit (if any)}   & \textbf{Register Address}    \\ \hline
+		\texttt{TEMP\_OUT\_L}    & Least significant byte of raw temperature output           & current sensor value                        & --                       & \texttt{0x2B}                \\ \hline
+		\texttt{TEMP\_OUT\_H}    & Most significant byte of raw temperature output            & current sensor value                        & --                       & \texttt{0x2C}                \\ \hline
+		\(T_{\mathrm{raw}}\)     & 16-bit signed raw temperature value                        & \((\texttt{0x2C} \ll 8)\;|\;\texttt{0x2B}\) & LSB                      & \texttt{0x2B}, \texttt{0x2C} \\ \hline
+		\(T_{^\circ\mathrm{C}}\) & Calculated temperature                                     & \(T_{\mathrm{raw}} / 100\)                  & \(^\circ\mathrm{C}\)     & --                           \\ \hline
+		\(T_{x10}\)              & Scaled temperature for one decimal place                   & \((T_{\mathrm{raw}} \cdot 10)/100\)         & \(0.1~^\circ\mathrm{C}\) & --                           \\ \hline
+	\end{tabularx}
+\end{table}
+
+\subsection{b) Implementation:}
+
+Compared to Tasks B and C, the LPS22HH does not require interpolation with calibration constants. The new code therefore consists mainly of sensor initialization, multi-byte readout, and formatted UART output.
+
+\begin{lstlisting}[language=C,caption={LPS22HH register definitions}]
+/* USER CODE BEGIN PD */
+#define LPS22HH_ADDR            (0x5D << 1)
+#define LPS22HH_CTRL_REG1       0x10
+#define LPS22HH_PRESS_OUT_XL    0x28
+#define LPS22HH_TEMP_OUT_L      0x2B
+/* USER CODE END PD */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Function prototypes for LPS22HH access}]
+/* USER CODE BEGIN PFP */
+static HAL_StatusTypeDef LPS22HH_Init(void);
+static HAL_StatusTypeDef LPS22HH_ReadPressure_hPa(int32_t *press);
+static HAL_StatusTypeDef LPS22HH_ReadTemp_x10(int32_t *temp);
+static void UART4_Print(const char *text);
+static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10);
+/* USER CODE END PFP */
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={Initialization and readout functions for Task D}]
+static HAL_StatusTypeDef LPS22HH_Init(void)
+{
+    if (HAL_I2C_Mem_Write(&hi2c2, LPS22HH_ADDR,
+                         LPS22HH_CTRL_REG1,
+                         I2C_MEMADD_SIZE_8BIT,
+                         (uint8_t[]){0x10}, 1,
+                         HAL_MAX_DELAY) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+    HAL_Delay(100);
+    return HAL_OK;
+}
+
+static HAL_StatusTypeDef LPS22HH_ReadPressure_hPa(int32_t *press)
+{
+    uint8_t buffer[3];
+    int32_t raw;
+    ...
+    raw = (int32_t)((uint32_t)buffer[2] << 16 |
+                    (uint32_t)buffer[1] << 8  |
+                    buffer[0]);
+    *press = raw / 4096;
+    return HAL_OK;
+}
+
+static HAL_StatusTypeDef LPS22HH_ReadTemp_x10(int32_t *temp)
+{
+    uint8_t buffer[2];
+    int16_t raw;
+    ...
+    raw = (int16_t)((buffer[1] << 8) | buffer[0]);
+    *temp = (raw * 10) / 100;
+    return HAL_OK;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C,caption={UART output and measurement loop}]
+static void UART4_PrintPressureTemp(int32_t press, int32_t temp_x10)
+{
+    char msg[64];
+    snprintf(msg, sizeof(msg),
+             "Pressure: %ld hPa, Temperature: %ld.%ld °C\r\n",
+             (long)press,
+             (long)(temp_x10 / 10),
+             (long)(temp_x10 % 10));
+    UART4_Print(msg);
+}
+
+/* USER CODE BEGIN 2 */
+if (LPS22HH_Init() != HAL_OK)
+{
+    while (1)
+    {
+        UART4_Print("LPS22HH INIT ERROR\r\n");
+        HAL_Delay(1000);
+    }
+}
+/* USER CODE END 2 */
+
+while (1)
+{
+    int32_t pressure;
+    int32_t temp_x10;
+
+    if (LPS22HH_ReadPressure_hPa(&pressure) == HAL_OK &&
+        LPS22HH_ReadTemp_x10(&temp_x10) == HAL_OK)
+        UART4_PrintPressureTemp(pressure, temp_x10);
+    else
+        UART4_Print("ERROR\r\n");
+
+    HAL_Delay(1000);
+}
+\end{lstlisting}
+
+\subsection{c) Results:}
+
+The pressure and temperature values were printed in the required format:
+
+\begin{lstlisting}[caption={UART output of Task D}]
+Pressure: 1004 hPa, Temperature: 31.7 °C
+Pressure: 1004 hPa, Temperature: 31.6 °C
+Pressure: 1004 hPa, Temperature: 31.6 °C
+Pressure: 1004 hPa, Temperature: 31.7 °C
+Pressure: 1004 hPa, Temperature: 31.7 °C
+Pressure: 1004 hPa, Temperature: 31.7 °C
+Pressure: 1004 hPa, Temperature: 31.8 °C
+\end{lstlisting}
+
+\subsection{d) Discussion:}
+
+Task D is simpler than Tasks B and C because both quantities are obtained directly from fixed sensitivities instead of interpolation. The implementation is structured into small functions for initialization, pressure readout, temperature readout, and UART output. Limitations of the current solution are the missing \texttt{WHO\_AM\_I} check, the missing \texttt{STATUS} evaluation before reading, and the fact that the pressure is printed only as an integer value. Reusable parts are the UART helper, the multi-byte I\textsuperscript{2}C read pattern, and the general structure of the measurement loop.
